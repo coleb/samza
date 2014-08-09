@@ -17,12 +17,13 @@
  * under the License.
  */
 
-package org.apache.samza.job.yarn
+package org.apache.samza.job.mesos
+
 import org.apache.samza.job.StreamJobFactory
 import org.apache.samza.config.Config
 
-class MesosJobFactory extends StreamJobFactory {
+class MesosSamzaJobFactory extends StreamJobFactory {
   def getJob(config: Config) = {
-    new MesosJob(config)
+    new MesosSamzaJob(config)
   }
 }

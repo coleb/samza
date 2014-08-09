@@ -16,22 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-core',
-  'samza-kafka',
-  'samza-kv',
-  'samza-kv-inmemory',
-  'samza-kv-leveldb',
-  'samza-log4j',
-  'samza-mesos',
-  'samza-serializers',
-  'samza-shell',
-  'samza-yarn',
-  'samza-test'
 
-rootProject.children.each {
-  if (it.name != 'samza-api' && it.name != 'samza-shell' && it.name != 'samza-log4j') {
-    it.name = it.name + "_" + scalaVersion
+package org.apache.samza.job.yarn
+import org.apache.samza.job.StreamJobFactory
+import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.apache.samza.config.Config
+import org.apache.samza.util.hadoop.HttpFileSystem
+
+class YarnJobFactory extends StreamJobFactory {
+  def getJob(config: Config) = {
+    // TODO fix this. needed to support http package locations.
+    val hConfig = new YarnConfiguration
+    hConfig.set("fs.http.impl", classOf[HttpFileSystem].getName)
+
+    new YarnJob(config, hConfig)
   }
 }

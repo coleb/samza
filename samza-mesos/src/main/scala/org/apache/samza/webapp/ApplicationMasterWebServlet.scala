@@ -16,22 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-core',
-  'samza-kafka',
-  'samza-kv',
-  'samza-kv-inmemory',
-  'samza-kv-leveldb',
-  'samza-log4j',
-  'samza-mesos',
-  'samza-serializers',
-  'samza-shell',
-  'samza-yarn',
-  'samza-test'
 
-rootProject.children.each {
-  if (it.name != 'samza-api' && it.name != 'samza-shell' && it.name != 'samza-log4j') {
-    it.name = it.name + "_" + scalaVersion
+package org.apache.samza.webapp
+
+import org.scalatra._
+import scalate.ScalateSupport
+import org.apache.samza.job.yarn.SamzaAppMasterState
+import org.apache.samza.config.Config
+import scala.collection.JavaConversions._
+import scala.collection.immutable.TreeMap
+import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.apache.hadoop.yarn.webapp.util.WebAppUtils
+
+class ApplicationMasterWebServlet(config: Config, state: SamzaAppMasterState) extends ScalatraServlet with ScalateSupport {
+  val yarnConfig = new YarnConfiguration
+
+  before() {
+    contentType = "text/html"
+  }
+
+  get("/") {
+    layoutTemplate("/WEB-INF/views/index.scaml",
+      "config" -> TreeMap(config.toMap.toArray: _*),
+      "state" -> state,
+      "rmHttpAddress" -> WebAppUtils.getRMWebAppURLWithScheme(yarnConfig))
   }
 }

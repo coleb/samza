@@ -16,22 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-core',
-  'samza-kafka',
-  'samza-kv',
-  'samza-kv-inmemory',
-  'samza-kv-leveldb',
-  'samza-log4j',
-  'samza-mesos',
-  'samza-serializers',
-  'samza-shell',
-  'samza-yarn',
-  'samza-test'
 
-rootProject.children.each {
-  if (it.name != 'samza-api' && it.name != 'samza-shell' && it.name != 'samza-log4j') {
-    it.name = it.name + "_" + scalaVersion
+package org.apache.samza.util.hadoop
+
+import java.io.IOException
+import java.io.InputStream
+
+import org.apache.hadoop.fs.FSInputStream
+
+class HttpInputStream(is: InputStream) extends FSInputStream {
+  val lock: AnyRef = new Object
+  var pos: Long = 0
+
+  override def seek(pos: Long) = throw new IOException("Seek not supported");
+
+  override def getPos: Long = pos
+
+  override def seekToNewSource(targetPos: Long): Boolean = throw new IOException("Seek not supported");
+
+  override def read: Int = {
+    lock.synchronized {
+      var byteRead = is.read()
+      if (byteRead >= 0) {
+        pos += 1
+      }
+      byteRead
+    }
   }
 }

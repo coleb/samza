@@ -22,8 +22,9 @@ package org.apache.samza.job.mesos
 import org.apache.samza.job.StreamJobFactory
 import org.apache.samza.config.Config
 
-class MesosSamzaJobFactory extends StreamJobFactory {
+/* This is the primary entry point to Samza's Mesos support for external developers. */
+class MesosJobFactory extends StreamJobFactory {
   def getJob(config: Config) = {
-    new MesosSamzaJob(config)
+    new MesosJob(config)
   }
 }

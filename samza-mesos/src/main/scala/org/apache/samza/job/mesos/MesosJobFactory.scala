@@ -17,28 +17,12 @@
  * under the License.
  */
 
-package org.apache.samza.webapp
-
-import org.scalatra._
-import scalate.ScalateSupport
-import org.apache.samza.job.yarn.SamzaAppMasterState
+package org.apache.samza.job.yarn
+import org.apache.samza.job.StreamJobFactory
 import org.apache.samza.config.Config
-import scala.collection.JavaConversions._
-import scala.collection.immutable.TreeMap
-import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.hadoop.yarn.webapp.util.WebAppUtils
 
-class ApplicationMasterWebServlet(config: Config, state: SamzaAppMasterState) extends ScalatraServlet with ScalateSupport {
-  val yarnConfig = new YarnConfiguration
-
-  before() {
-    contentType = "text/html"
-  }
-
-  get("/") {
-    layoutTemplate("/WEB-INF/views/index.scaml",
-      "config" -> TreeMap(config.toMap.toArray: _*),
-      "state" -> state,
-      "rmHttpAddress" -> WebAppUtils.getRMWebAppURLWithScheme(yarnConfig))
+class MesosJobFactory extends StreamJobFactory {
+  def getJob(config: Config) = {
+    new MesosJob(config)
   }
 }

@@ -18,11 +18,6 @@
  */
 
 package org.apache.samza.job.yarn
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.security.UserGroupInformation
-import org.apache.hadoop.yarn.api.records.ApplicationId
-import org.apache.hadoop.yarn.api.ApplicationConstants
 import org.apache.samza.config.Config
 import org.apache.samza.util.Util
 import org.apache.samza.job.ApplicationStatus
@@ -38,20 +33,20 @@ import org.apache.samza.config.ShellCommandConfig
 import org.apache.samza.SamzaException
 
 
-object YarnJob {
+object MesosJob {
   val DEFAULT_AM_CONTAINER_MEM = 1024
 }
 
 /**
- * Starts the application manager
+ * Starts the scheduler
  */
-class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
+class MesosJob(config: Config) extends StreamJob {
   import YarnJob._
-  
+
   val client = new ClientHelper(hadoopConfig)
   var appId: Option[ApplicationId] = None
-  
-  def submit: YarnJob = {
+
+  def submit: MesosJob = {
     appId = client.submitApplication(
       new Path(config.getPackagePath.getOrElse(throw new SamzaException("No YARN package path defined in config."))),
       config.getAMContainerMaxMemoryMb.getOrElse(DEFAULT_AM_CONTAINER_MEM),

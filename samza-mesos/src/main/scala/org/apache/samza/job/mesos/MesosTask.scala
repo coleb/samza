@@ -17,6 +17,8 @@
  * under the License.
  */
 
+package org.apache.samza.job.mesos
+
 /* This is a wrapper for a Samza task.  */
 class MesosTask {
 

@@ -17,6 +17,8 @@
  * under the License.
  */
 
+package org.apache.samza.job.mesos
+
 import mesosphere.mesos.util.FrameworkInfo
 import org.apache.mesos.MesosSchedulerDriver
 import org.apache.samza.config.Config
@@ -25,7 +27,7 @@ import org.apache.samza.job.StreamJob
 /* A MesosJob is a wrapper for a Mesos Scheduler. */
 class MesosJob(config: Config) extends StreamJob {
   val framework = FrameworkInfo("SamzaMesos")
-  val scheduler = new MesosSamzaScheduler
+  val scheduler = new SamzaScheduler
   val driver = new MesosSchedulerDriver(scheduler, framework.toProto, "zk://localhost:2181/mesos")
 
   driver.run()

@@ -17,6 +17,8 @@
  * under the License.
  */
 
+package org.apache.samza.job.mesos
+
 import org.apache.mesos.Executor
 
 /* This is the bridge between a Samza task and a Mesos executor. */

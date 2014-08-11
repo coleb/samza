@@ -17,6 +17,8 @@
  * under the License.
  */
 
+package org.apache.samza.job.mesos
+
 import java.util
 
 import org.apache.mesos.Protos._

@@ -19,16 +19,75 @@
 
 package org.apache.samza.job.mesos
 
+import java.util.concurrent.TimeUnit
+
 import mesosphere.mesos.util.FrameworkInfo
 import org.apache.mesos.MesosSchedulerDriver
+import org.apache.mesos.Protos.{FrameworkID, TaskState}
+import org.apache.mesos.state.{State, ZooKeeperState}
 import org.apache.samza.config.Config
-import org.apache.samza.job.StreamJob
+import org.apache.samza.job.ApplicationStatus._
+import org.apache.samza.job.{ApplicationStatus, StreamJob}
 
 /* A MesosJob is a wrapper for a Mesos Scheduler. */
 class MesosJob(config: Config) extends StreamJob {
-  val framework = FrameworkInfo("SamzaMesos")
-  val scheduler = new SamzaScheduler
-  val driver = new MesosSchedulerDriver(scheduler, framework.toProto, "zk://localhost:2181/mesos")
 
-  driver.run()
+  val state = new SamzaSchedulerState()
+  val frameworkInfo = getFrameworkInfo
+  val scheduler = new SamzaScheduler(config, state)
+  val driver = new MesosSchedulerDriver(scheduler, frameworkInfo, "zk://localhost:2181/mesos")
+
+  def getStatus: ApplicationStatus = {
+    scheduler.getCurrentStatus match {
+      case TaskState.TASK_FAILED => ApplicationStatus.UnsuccessfulFinish
+      case TaskState.TASK_FINISHED => ApplicationStatus.SuccessfulFinish
+      case TaskState.TASK_KILLED => ApplicationStatus.UnsuccessfulFinish
+      case TaskState.TASK_LOST => ApplicationStatus.UnsuccessfulFinish
+      case TaskState.TASK_RUNNING => ApplicationStatus.Running
+      case TaskState.TASK_STAGING => ApplicationStatus.New
+      case TaskState.TASK_STARTING => ApplicationStatus.New
+    }
+  }
+
+  def getFrameworkInfo: FrameworkInfo = {
+    val frameworkName = config.getName
+    val frameworkId = FrameworkID.newBuilder
+      .setValue(frameworkName)
+      .build
+    FrameworkInfo.newBuilder
+      .setName(frameworkName)
+      .setId(frameworkId)
+      .setUser("") // Let Mesos assign the user
+      .setFailoverTimeout(60.0) // Allow a 60 second window for failover
+      .build
+  }
+
+  def getState: State = {
+    new ZooKeeperState("localhost:2181", 10, TimeUnit.SECONDS, "/samza-mesos-test")
+  }
+
+  def kill: MesosJob = {
+    driver.stop()
+  }
+
+  def submit: MesosJob = {
+    driver.run
+  }
+
+  def waitForFinish(timeoutMs: Long): ApplicationStatus = {
+    val startTimeMs = System.currentTimeMillis()
+
+    while (System.currentTimeMillis() - startTimeMs < timeoutMs) {
+      Option(getStatus) match {
+        case Some(s) => if (SuccessfulFinish.equals(s) || UnsuccessfulFinish.equals(s)) return s
+        case None => null
+      }
+
+      Thread.sleep(1000)
+    }
+
+    Running
+  }
+
+  def waitForStatus(status: ApplicationStatus, timeoutMs: Long): ApplicationStatus = {}
 }

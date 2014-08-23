@@ -177,7 +177,6 @@ project(":samza-mesos_$scalaVersion") {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
-    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     compile "org.apache.mesos:mesos:0.19.1"
     compile "mesosphere:mesos-utils:0.0.6"
 

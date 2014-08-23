@@ -19,7 +19,7 @@
 
 package org.apache.samza.config
 
-object MesosConfig extends JobConfig {
+object MesosConfig {
   // mesos scheduler config
   val PACKAGE_PATH = "mesos.package.path"
 
@@ -27,7 +27,7 @@ object MesosConfig extends JobConfig {
   val EXECUTOR_MAX_MEMORY_MB = "mesos.executor.memory.mb"
   val EXECUTOR_MAX_CPU_CORES = "mesos.executor.cpu.cores"
   val EXECUTOR_MAX_DISK_MB = "mesos.executor.disk.mb"
-  val EXECUTOR_COUNT = "mesos.executor.count"
+  val EXECUTOR_TASK_COUNT = "mesos.executor.count"
 
   val SCHEDULER_JMX_ENABLED = "mesos.scheduler.jmx.enabled"
   val SCHEDULER_FAILOVER_TIMEOUT = "mesos.scheduler.failover.timeout"
@@ -35,7 +35,7 @@ object MesosConfig extends JobConfig {
   implicit def Config2Mesos(config: Config) = new MesosConfig(config)
 }
 
-class MesosConfig(config: Config) extends ScalaMapConfig(config) {
+class MesosConfig(config: Config) extends JobConfig(config) {
   def getExecutorMaxMemoryMb: Option[Int] = getOption(MesosConfig.EXECUTOR_MAX_MEMORY_MB).map(_.toInt)
 
   def getExecutorMaxCpuCores: Option[Int] = getOption(MesosConfig.EXECUTOR_MAX_CPU_CORES).map(_.toInt)

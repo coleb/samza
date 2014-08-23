@@ -35,7 +35,7 @@ object YarnConfig {
   implicit def Config2Yarn(config: Config) = new YarnConfig(config)
 }
 
-class YarnConfig(config: Config) extends ScalaMapConfig(config) {
+class YarnConfig(config: Config) extends JobConfig(config) {
   def getContainerMaxMemoryMb: Option[Int] = getOption(YarnConfig.CONTAINER_MAX_MEMORY_MB).map(_.toInt)
 
   def getContainerMaxCpuCores: Option[Int] = getOption(YarnConfig.CONTAINER_MAX_CPU_CORES).map(_.toInt)

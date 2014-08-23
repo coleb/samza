@@ -21,11 +21,10 @@ package org.apache.samza.job.mesos
 
 import java.util.concurrent.TimeUnit
 
-import mesosphere.mesos.util.FrameworkInfo
+import org.apache.mesos.Protos.{Status, TaskState, FrameworkInfo, FrameworkID}
 import org.apache.mesos.MesosSchedulerDriver
-import org.apache.mesos.Protos.{FrameworkID, TaskState}
 import org.apache.mesos.state.{State, ZooKeeperState}
-import org.apache.samza.config.Config
+import org.apache.samza.config.{JobConfig, MesosConfig, Config}
 import org.apache.samza.job.ApplicationStatus._
 import org.apache.samza.job.{ApplicationStatus, StreamJob}
 
@@ -38,7 +37,7 @@ class MesosJob(config: Config) extends StreamJob {
   val driver = new MesosSchedulerDriver(scheduler, frameworkInfo, "zk://localhost:2181/mesos")
 
   def getStatus: ApplicationStatus = {
-    scheduler.getCurrentStatus match {
+    scheduler.currentState match {
       case TaskState.TASK_FAILED => ApplicationStatus.UnsuccessfulFinish
       case TaskState.TASK_FINISHED => ApplicationStatus.SuccessfulFinish
       case TaskState.TASK_KILLED => ApplicationStatus.UnsuccessfulFinish
@@ -50,7 +49,7 @@ class MesosJob(config: Config) extends StreamJob {
   }
 
   def getFrameworkInfo: FrameworkInfo = {
-    val frameworkName = config.getName
+    val frameworkName = config.asInstanceOf[JobConfig].getName.get
     val frameworkId = FrameworkID.newBuilder
       .setValue(frameworkName)
       .build
@@ -66,12 +65,14 @@ class MesosJob(config: Config) extends StreamJob {
     new ZooKeeperState("localhost:2181", 10, TimeUnit.SECONDS, "/samza-mesos-test")
   }
 
-  def kill: MesosJob = {
-    driver.stop()
+  def kill: StreamJob = {
+    driver.stop
+    this
   }
 
-  def submit: MesosJob = {
+  def submit: StreamJob = {
     driver.run
+    this
   }
 
   def waitForFinish(timeoutMs: Long): ApplicationStatus = {
@@ -89,5 +90,18 @@ class MesosJob(config: Config) extends StreamJob {
     Running
   }
 
-  def waitForStatus(status: ApplicationStatus, timeoutMs: Long): ApplicationStatus = {}
+  def waitForStatus(status: ApplicationStatus, timeoutMs: Long): ApplicationStatus = {
+    val startTimeMs = System.currentTimeMillis()
+
+    while (System.currentTimeMillis() - startTimeMs < timeoutMs) {
+      Option(getStatus) match {
+        case Some(s) => if (status.equals(s)) return status
+        case None => null
+      }
+
+      Thread.sleep(1000)
+    }
+
+    Running
+  }
 }

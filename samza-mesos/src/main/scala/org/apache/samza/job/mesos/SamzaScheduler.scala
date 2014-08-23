@@ -23,33 +23,33 @@ import java.util
 
 import org.apache.mesos.Protos._
 import org.apache.mesos.{Scheduler, SchedulerDriver}
-import org.apache.samza.config.MesosConfig
 import org.apache.samza.container.TaskNamesToSystemStreamPartitions
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder}
-import org.apache.samza.util.Util
-import org.slf4j.Logger
+import org.apache.samza.util.{Logging, Util}
+import org.apache.samza.config.Config
+import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.config.MesosConfig
+import org.apache.samza.config.MesosConfig.Config2Mesos
 
-class SamzaScheduler(config: MesosConfig) extends Scheduler {
-  val log = Logger.getLogger(getClass.getName)
-  var currentStatus = TaskState.TASK_STARTING
-  var state: SamzaSchedulerState = null
+import scala.collection.JavaConversions._
 
-  state.taskCount = config.getTaskCount match {
+class SamzaScheduler(config: Config, state: SamzaSchedulerState) extends Scheduler with Logging {
+  var currentState = TaskState.TASK_STARTING
+
+  state.taskCount = config.asInstanceOf[MesosConfig].getTaskCount match {
     case Some(count) => count
     case None =>
-      info("No %s specified. Defaulting to one container." format YarnConfig.TASK_COUNT)
+      info("No %s specified. Defaulting to one container." format MesosConfig.EXECUTOR_TASK_COUNT)
       1
   }
 
   val tasksToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, state.taskCount)
   val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, tasksToSSPTaskNames)
 
-  state.neededContainers = state.taskCount
+  state.neededExecutors = state.taskCount
   state.unclaimedTasks = (0 until state.taskCount).toSet
 
-  info("Awaiting offers for %s containers" format state.taskCount)
-
-  override def shouldShutdown = state.completedTasks == state.taskCount
+  info("Awaiting offers for %s executors" format state.taskCount)
 
   def registered(driver: SchedulerDriver, p2: FrameworkID, p3: MasterInfo) {}
 
@@ -59,11 +59,11 @@ class SamzaScheduler(config: MesosConfig) extends Scheduler {
 
   def resourceOffers(driver: SchedulerDriver, offers: util.List[Offer]) {
     for (offer <- offers) {
-      log.info("Received offer " + offer)
+      info("Received offer " + offer)
 
       state.unclaimedTasks.headOption match {
         case Some(taskId) => {
-          info("Got available task id (%d) for offer: %s" format(taskId, container))
+          info("Got available task id (%d) for offer: %s" format(taskId, offer))
 
           val sspTaskNames: TaskNamesToSystemStreamPartitions = tasksToSSPTaskNames.getOrElse(taskId, TaskNamesToSystemStreamPartitions())
           info("Claimed SSP taskNames %s for offer ID %s" format(sspTaskNames, taskId))
@@ -71,9 +71,9 @@ class SamzaScheduler(config: MesosConfig) extends Scheduler {
           val cmdBuilderClassName = config.getCommandClass.getOrElse(classOf[ShellCommandBuilder].getName)
           val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
             .setConfig(config)
-            .setName("samza-container-%s" format taskId)
+            .setName("samza-executor-%s" format taskId.toString)
             .setTaskNameToSystemStreamPartitionsMapping(sspTaskNames.getJavaFriendlyType)
-            .setTaskNameToChangeLogPartitionMapping(taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2)).asJava)
+            .setTaskNameToChangeLogPartitionMapping(taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2)))
           val command = cmdBuilder.buildCommand
           info("Task ID %s using command %s" format(taskId, command))
 
@@ -86,8 +86,8 @@ class SamzaScheduler(config: MesosConfig) extends Scheduler {
             .setValue(command)
 
           val task = TaskInfo.newBuilder
-            .setName(taskId.getValue)
-            .setTaskId(taskId)
+            .setName("samza-executor-%s" format taskId)
+            .setTaskId(TaskID.newBuilder().setValue(taskId.toString).build())
             .setSlaveId(offer.getSlaveId)
             .addResources(cpuResource)
             .setCommand(commandInfo)
@@ -95,27 +95,27 @@ class SamzaScheduler(config: MesosConfig) extends Scheduler {
 
           /** FIXME: set package path somehow */
 
-          log.info("Launching task " + taskId.getValue)
-          driver.launchTasks(List(offer.getId), List(task))
+          info("Launching task " + taskId)
+          driver.launchTasks(util.Arrays.asList(offer.getId), util.Arrays.asList(task))
           info("Started task ID %s" format taskId)
 
-          state.neededContainers -= 1
-          state.runningTasks += taskId -> taskId
+          state.neededExecutors -= 1
+          state.runningTasks += taskId -> offer
           state.unclaimedTasks -= taskId
           state.taskToTaskNames += taskId -> sspTaskNames.getJavaFriendlyType
         }
         case _ => {
           // there are no more tasks to run, so decline the offer
-          log.info("Declining offer")
+          info("Declining offer")
           driver.declineOffer(offer.getId)
         }
       }
     }
   }
 
-  def statusUpdate(driver: SchedulerDriver, status: TaskStatus) {
-    log.info("Received status update " + status)
-    currentStatus = status
+  override def statusUpdate(d: SchedulerDriver, status: TaskStatus): Unit = {
+    info("Status Update for Task %s: %s", status.getTaskId, status.getState)
+    currentState = status.getState
   }
 
   def frameworkMessage(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, p4: Array[Byte]) {}
@@ -127,8 +127,4 @@ class SamzaScheduler(config: MesosConfig) extends Scheduler {
   def executorLost(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, p4: Int) {}
 
   def error(driver: SchedulerDriver, error: String) {}
-
-  def getCurrentStatus = TaskStatus {
-    currentStatus
-  }
 }

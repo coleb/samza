@@ -41,8 +41,28 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.StreamMetadataCache
+import org.apache.samza.task.TaskInstanceCollector
+import org.scalatest.junit.AssertionsForJUnit
+import org.apache.samza.metrics.JmxServer
 
-class TestSamzaContainer {
+class TestSamzaContainer extends AssertionsForJUnit {
+  @Test
+  def testJmxServerShutdownOnException {
+    var stopped = false
+    val jmxServer = new JmxServer {
+      override def stop {
+        super.stop
+        stopped = true
+      }
+    }
+    intercept[Exception] {
+      // Calling main will trigger an NPE since the container checks for an 
+      // isCompressed environment variable, which isn't set.
+      SamzaContainer.safeMain(jmxServer)
+    }
+    assertTrue(stopped)
+  }
+
   @Test
   def testGetInputStreamMetadata {
     val inputStreams = Set(
@@ -86,18 +106,18 @@ class TestSamzaContainer {
     val producerMultiplexer = new SystemProducers(
       Map[String, SystemProducer](),
       new SerdeManager)
+    val collector = new TaskInstanceCollector(producerMultiplexer)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
       config,
       new TaskInstanceMetrics,
-      consumerMultiplexer: SystemConsumers,
-      producerMultiplexer: SystemProducers)
+      consumerMultiplexer,
+      collector)
     val runLoop = new RunLoop(
       taskInstances = Map(taskName -> taskInstance),
       consumerMultiplexer = consumerMultiplexer,
-      metrics = new SamzaContainerMetrics
-    )
+      metrics = new SamzaContainerMetrics)
     val container = new SamzaContainer(
       Map(taskName -> taskInstance),
       runLoop,

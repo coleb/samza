@@ -24,30 +24,38 @@ Samza's documentation uses Jekyll to build a website out of markdown pages. Prer
 
 To serve the website on [localhost:4000](http://localhost:4000/):
 
-    bundle exec jekyll serve --watch
+    bundle exec jekyll serve --watch --baseurl
 
 To compile the website in the \_site directory, execute:
 
     bundle exec jekyll build
 
+To test the site, run:
+
+    bundle exec jekyll serve --watch --baseurl
+
 ## Versioning
 
-The "Learn" section of this website is versioned. To add a new version, copy the folder at the version number-level (0.7.0 to 0.8.0, for example).
+If you're working with versioned content (anything in the learn or img directories), you'll also need to run a script that generates the appropriate directories:
 
-All links between pages inside a versioned folder should be relative links, not absolute.
+      _docs/local-site-test.sh
+
+The local-site-test.sh script must be run every time a change is made to versioned content locally in order to trigger a refresh with Jekyll.
+
+Keep in mind that versioned content in older versions links to samza.incubator.apache.org, not the localhost:4000. This is because they are not updated by your branch and are using the values in SVN instead.
+
+To add a new version, change the version number in _config.yml. All links in pages should use {{site.version}}, not hard-coded version number.
 
 ## Javadocs
 
 To auto-generate the latest Javadocs, run:
 
-    bin/generate-javadocs.sh <version>
-
-The version number is the number that will be used in the /docs/learn/documentation/<version>/api/javadocs path.
+    bin/generate-javadocs.sh
 
 ## Release
 
 To build and publish the website to Samza's Apache SVN repository, run:
 
-    bin/publish-site.sh 0.7.0 "updating welcome page" criccomini
+    bin/publish-site.sh "updating welcome page" criccomini
 
 This command will re-build the Javadocs and website, checkout https://svn.apache.org/repos/asf/incubator/samza/site/ locally, copy the site into the directory, and commit the changes.

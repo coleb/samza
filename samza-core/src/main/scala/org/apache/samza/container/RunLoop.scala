@@ -19,7 +19,7 @@
 
 package org.apache.samza.container
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.system.{ SystemStreamPartition, SystemConsumers }
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.util.TimerUtils
@@ -64,7 +64,6 @@ class RunLoop(
     while (!shutdownNow) {
       process
       window
-      send
       commit
     }
   }
@@ -78,7 +77,6 @@ class RunLoop(
     metrics.processes.inc
 
     updateTimer(metrics.processMs) {
-
       val envelope = updateTimer(metrics.chooseMs) {
         consumerMultiplexer.choose
       }
@@ -90,8 +88,8 @@ class RunLoop(
         metrics.envelopes.inc
 
         val taskInstance = systemStreamPartitionToTaskInstance(ssp)
-
         val coordinator = new ReadableCoordinator(taskInstance.taskName)
+
         taskInstance.process(envelope, coordinator)
         checkCoordinator(coordinator)
       } else {
@@ -118,18 +116,6 @@ class RunLoop(
             checkCoordinator(coordinator)
         }
       }
-    }
-  }
-
-  /**
-   * If task instances published any messages to output streams, this flushes
-   * them to the underlying systems.
-   */
-  private def send {
-    updateTimer(metrics.sendMs) {
-      trace("Triggering send in task instances.")
-      metrics.sends.inc
-      taskInstances.values.foreach(_.send)
     }
   }
 

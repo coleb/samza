@@ -52,7 +52,9 @@ class SamzaScheduler(config: Config, state: SamzaSchedulerState) extends Schedul
 
   info("Awaiting offers for %s executors" format state.taskCount)
 
-  def registered(driver: SchedulerDriver, p2: FrameworkID, p3: MasterInfo) {}
+  def registered(driver: SchedulerDriver, p2: FrameworkID, p3: MasterInfo) {
+      info("Framework registered")
+  }
 
   def reregistered(driver: SchedulerDriver, p2: MasterInfo) {}
 
@@ -127,5 +129,7 @@ class SamzaScheduler(config: Config, state: SamzaSchedulerState) extends Schedul
 
   def executorLost(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, p4: Int) {}
 
-  def error(driver: SchedulerDriver, error: String) {}
+  def error(driver: SchedulerDriver, error: String) {
+    info("Error reported: %s" format error)
+  }
 }

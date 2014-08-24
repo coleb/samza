@@ -37,7 +37,7 @@ class MesosJob(config: Config) extends StreamJob {
   val state = new SamzaSchedulerState()
   val frameworkInfo = getFrameworkInfo
   val scheduler = new SamzaScheduler(config, state)
-  val driver = new MesosSchedulerDriver(scheduler, frameworkInfo, "zk://localhost:2181/samza-mesos-hello-world")
+  val driver = new MesosSchedulerDriver(scheduler, frameworkInfo, "zk://localhost:2181/mesos")
 
   def getStatus: ApplicationStatus = {
     scheduler.currentState match {
@@ -65,7 +65,7 @@ class MesosJob(config: Config) extends StreamJob {
   }
 
   def getState: State = {
-    new ZooKeeperState("localhost:2181", 10, TimeUnit.SECONDS, "/samza-mesos-test")
+    new ZooKeeperState("localhost:2181", 10, TimeUnit.SECONDS, "/mesos")
   }
 
   def kill: StreamJob = {

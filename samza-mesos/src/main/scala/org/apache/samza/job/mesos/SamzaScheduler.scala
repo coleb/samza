@@ -23,20 +23,21 @@ import java.util
 
 import org.apache.mesos.Protos._
 import org.apache.mesos.{Scheduler, SchedulerDriver}
-import org.apache.samza.container.TaskNamesToSystemStreamPartitions
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder}
-import org.apache.samza.util.{Logging, Util}
 import org.apache.samza.config.Config
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.MesosConfig
 import org.apache.samza.config.MesosConfig.Config2Mesos
-
+import org.apache.samza.util.Util
 import scala.collection.JavaConversions._
+
+import org.apache.samza.util.Logging
+import org.apache.samza.container.TaskNamesToSystemStreamPartitions
 
 class SamzaScheduler(config: Config, state: SamzaSchedulerState) extends Scheduler with Logging {
   var currentState = TaskState.TASK_STARTING
 
-  state.taskCount = config.asInstanceOf[MesosConfig].getTaskCount match {
+  state.taskCount = config.getTaskCount match {
     case Some(count) => count
     case None =>
       info("No %s specified. Defaulting to one container." format MesosConfig.EXECUTOR_TASK_COUNT)

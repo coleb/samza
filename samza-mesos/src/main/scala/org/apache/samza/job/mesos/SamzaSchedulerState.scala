@@ -31,7 +31,7 @@ import org.apache.samza.util.Logging
 
 class SamzaSchedulerState() extends Logging {
 
-  var state = new ZooKeeperState("localhost:2181", 10, TimeUnit.SECONDS, "/samza-mesos-test")
+  var state = new ZooKeeperState("127.0.0.1:2181", 10, TimeUnit.SECONDS, "/samza-mesos-test")
 
   // controlled by the Scheduler
   var completedTasks = 0

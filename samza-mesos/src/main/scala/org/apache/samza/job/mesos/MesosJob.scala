@@ -24,9 +24,12 @@ import java.util.concurrent.TimeUnit
 import org.apache.mesos.Protos.{Status, TaskState, FrameworkInfo, FrameworkID}
 import org.apache.mesos.MesosSchedulerDriver
 import org.apache.mesos.state.{State, ZooKeeperState}
-import org.apache.samza.config.{JobConfig, MesosConfig, Config}
 import org.apache.samza.job.ApplicationStatus._
 import org.apache.samza.job.{ApplicationStatus, StreamJob}
+import org.apache.samza.config.Config
+import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.config.MesosConfig
+import org.apache.samza.config.MesosConfig.Config2Mesos
 
 /* A MesosJob is a wrapper for a Mesos Scheduler. */
 class MesosJob(config: Config) extends StreamJob {
@@ -34,7 +37,7 @@ class MesosJob(config: Config) extends StreamJob {
   val state = new SamzaSchedulerState()
   val frameworkInfo = getFrameworkInfo
   val scheduler = new SamzaScheduler(config, state)
-  val driver = new MesosSchedulerDriver(scheduler, frameworkInfo, "zk://localhost:2181/mesos")
+  val driver = new MesosSchedulerDriver(scheduler, frameworkInfo, "zk://localhost:2181/samza-mesos-hello-world")
 
   def getStatus: ApplicationStatus = {
     scheduler.currentState match {
@@ -49,7 +52,7 @@ class MesosJob(config: Config) extends StreamJob {
   }
 
   def getFrameworkInfo: FrameworkInfo = {
-    val frameworkName = config.asInstanceOf[JobConfig].getName.get
+    val frameworkName = config.getName.get
     val frameworkId = FrameworkID.newBuilder
       .setValue(frameworkName)
       .build

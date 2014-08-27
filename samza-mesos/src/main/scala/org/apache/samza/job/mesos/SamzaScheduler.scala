@@ -21,6 +21,7 @@ package org.apache.samza.job.mesos
 
 import java.util
 
+import org.apache.mesos.Protos.Environment._
 import org.apache.mesos.Protos._
 import org.apache.mesos.{Scheduler, SchedulerDriver}
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder}
@@ -29,6 +30,7 @@ import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.MesosConfig
 import org.apache.samza.config.MesosConfig.Config2Mesos
 import org.apache.samza.util.Util
+
 import scala.collection.JavaConversions._
 
 import org.apache.samza.util.Logging
@@ -52,13 +54,17 @@ class SamzaScheduler(config: Config, state: SamzaSchedulerState) extends Schedul
 
   info("Awaiting offers for %s executors" format state.taskCount)
 
-  def registered(driver: SchedulerDriver, p2: FrameworkID, p3: MasterInfo) {
+  def registered(driver: SchedulerDriver, framework: FrameworkID, master: MasterInfo) {
       info("Framework registered")
   }
 
-  def reregistered(driver: SchedulerDriver, p2: MasterInfo) {}
+  def reregistered(driver: SchedulerDriver, master: MasterInfo): Unit = {
+    info("Framework re-registered")
+  }
 
-  def offerRescinded(driver: SchedulerDriver, p2: OfferID) {}
+  def offerRescinded(driver: SchedulerDriver, offer: OfferID): Unit = {
+    info("An offer was rescinded")
+  }
 
   def resourceOffers(driver: SchedulerDriver, offers: util.List[Offer]) {
     for (offer <- offers) {
@@ -67,6 +73,29 @@ class SamzaScheduler(config: Config, state: SamzaSchedulerState) extends Schedul
       state.unclaimedTasks.headOption match {
         case Some(taskId) => {
           info("Got available task id (%d) for offer: %s" format(taskId, offer))
+
+          val cpuResource = Resource.newBuilder
+            .setName("cpus")
+            .setType(Value.Type.SCALAR)
+            .setScalar(Value.Scalar.newBuilder().setValue(1))
+
+          val diskResource = Resource.newBuilder
+            .setName("disk")
+            .setType(Value.Type.SCALAR)
+            .setScalar(Value.Scalar.newBuilder().setValue(4192))
+
+          val memResource = Resource.newBuilder
+            .setName("mem")
+            .setType(Value.Type.SCALAR)
+            .setScalar(Value.Scalar.newBuilder().setValue(1024))
+
+          val packagePath = config.getPackagePath.get
+          info("Starting task ID %s using package path %s" format (taskId, packagePath))
+
+          val uriCommandInfo = CommandInfo.URI.newBuilder()
+            .setValue(packagePath)
+            .setExtract(true)
+            .build()
 
           val sspTaskNames: TaskNamesToSystemStreamPartitions = tasksToSSPTaskNames.getOrElse(taskId, TaskNamesToSystemStreamPartitions())
           info("Claimed SSP taskNames %s for offer ID %s" format(sspTaskNames, taskId))
@@ -77,15 +106,26 @@ class SamzaScheduler(config: Config, state: SamzaSchedulerState) extends Schedul
             .setName("samza-executor-%s" format taskId.toString)
             .setTaskNameToSystemStreamPartitionsMapping(sspTaskNames.getJavaFriendlyType)
             .setTaskNameToChangeLogPartitionMapping(taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2)))
-          val command = cmdBuilder.buildCommand
+
+          val env = cmdBuilder.buildEnvironment.map { case (k, v) => (k, Util.envVarEscape(v)) }
+          info("Task ID %s using env %s" format (taskId, env))
+
+          val envInfo = {
+            val builder = Environment.newBuilder()
+            for ((key, value) <- env) {
+              val variable = Variable.newBuilder().setName(key).setValue(value)
+              builder.addVariables(variable)
+            }
+            builder.build()
+          }
+
+          val basename = "/home/jbringhu/samza-dev/hello-samza/deploy/samza"
+          val command = "cd %s*; %s".format(basename, cmdBuilder.buildCommand)
           info("Task ID %s using command %s" format(taskId, command))
 
-          val cpuResource = Resource.newBuilder
-            .setName("cpus")
-            .setType(Value.Type.SCALAR)
-            .setScalar(Value.Scalar.newBuilder().setValue(1))
-
           val commandInfo = CommandInfo.newBuilder
+            .setEnvironment(envInfo)
+            .addUris(uriCommandInfo)
             .setValue(command)
 
           val task = TaskInfo.newBuilder
@@ -93,10 +133,12 @@ class SamzaScheduler(config: Config, state: SamzaSchedulerState) extends Schedul
             .setTaskId(TaskID.newBuilder().setValue(taskId.toString).build())
             .setSlaveId(offer.getSlaveId)
             .addResources(cpuResource)
+            .addResources(diskResource)
+            .addResources(memResource)
             .setCommand(commandInfo)
             .build
 
-          /** FIXME: set package path somehow */
+          /** FIXME: set package path somehow? */
 
           info("Launching task " + taskId)
           driver.launchTasks(util.Arrays.asList(offer.getId), util.Arrays.asList(task))
@@ -116,18 +158,26 @@ class SamzaScheduler(config: Config, state: SamzaSchedulerState) extends Schedul
     }
   }
 
-  override def statusUpdate(d: SchedulerDriver, status: TaskStatus): Unit = {
-    info("Status Update for Task %s: %s", status.getTaskId, status.getState)
+  override def statusUpdate(driver: SchedulerDriver, status: TaskStatus): Unit = {
+    info("Status update for Task %s: %s".format(status.getTaskId, status.getState))
     currentState = status.getState
   }
 
-  def frameworkMessage(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, p4: Array[Byte]) {}
+  def frameworkMessage(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, data: Array[Byte]): Unit = {
+    info("A framework message was received.")
+  }
 
-  def disconnected(driver: SchedulerDriver) {}
+  def disconnected(driver: SchedulerDriver): Unit = {
+    info("Framework has been disconnected")
+  }
 
-  def slaveLost(driver: SchedulerDriver, slave: SlaveID) {}
+  def slaveLost(driver: SchedulerDriver, slave: SlaveID): Unit = {
+    info("A slave has been lost")
+  }
 
-  def executorLost(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, p4: Int) {}
+  def executorLost(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, status: Int): Unit = {
+    info("An executor has been lost.")
+  }
 
   def error(driver: SchedulerDriver, error: String) {
     info("Error reported: %s" format error)

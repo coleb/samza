@@ -20,9 +20,10 @@
 package org.apache.samza.job.mesos.constraints
 
 /**
- * The offer quantity constraint will hold offers until the specified number of offers have been reached. It may
- * be useful to hold a percentage of offers above the number needed for Samza tasks so optimizing constraints,
- * such as locality constraints, have a reasonable set of resource to optimize on.
+ * The offer quantity constraint will hold offers until the specified number of offers have been reached. For simple
+ * use cases, it can be used to wait until all tasks have a matching offer. In more complex cases, it may be useful
+ * to hold a percentage of offers above the number need to launch all tasks. This allows custom chained optimizing
+ * constraints to have a reasonable set of resources to optimize over.
  */
 class OfferQuantityConstraint extends SchedulingConstraint {
 

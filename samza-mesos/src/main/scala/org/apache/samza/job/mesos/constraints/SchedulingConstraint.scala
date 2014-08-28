@@ -17,7 +17,24 @@
  * under the License.
  */
 
-package org.apache.samza.job.mesos.constraints;
+package org.apache.samza.job.mesos.constraints
 
+import org.apache.mesos.Protos.{TaskInfo, OfferID}
 
-abstract class SchedulingConstraint {}
+import scala.concurrent.Future
+
+abstract class SchedulingConstraint(offers: java.util.Collection[OfferID], tasks: java.util.Collection[TaskInfo]) {
+
+  /**
+   * Determine if the specified set of offers satisfies the constraint requirements.
+   */
+  def satisfied(): Future[Boolean]
+
+  /**
+   * Determine this constraint's preference for mapping tasks to offers, if any.
+   */
+  def mappingPreference(): Future[Option[(List[OfferID], List[TaskInfo])]] = future {
+    None
+  }
+
+}

@@ -18,7 +18,6 @@ class NumericalConstraint(offers: java.util.Collection[Offer], tasks: java.util.
           constraintName == attr.getName && attrScalar.getValue == constraintValue
         }
         case _ => false
-
       }
     )
   }
@@ -27,5 +26,4 @@ class NumericalConstraint(offers: java.util.Collection[Offer], tasks: java.util.
   def satisfied(): Future[Boolean] = future {
     offers.forall(offerIsSatisfied(_))
   }
-
 }

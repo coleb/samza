@@ -5,7 +5,8 @@ import org.apache.mesos.Protos.{Attribute, TaskInfo, Offer}
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
-class NumericalConstraint(offers: java.util.Collection[Offer], tasks: java.util.Collection[TaskInfo]) extends SchedulingConstraint {
+class CategoricalConstraint(offers: java.util.Collection[Offer],
+                          tasks: java.util.Collection[TaskInfo]) extends SchedulingConstraint {
   val name: Option[String]
   val value: Option[Any]
 

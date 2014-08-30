@@ -22,26 +22,41 @@ package org.apache.samza.job.mesos
 import java.util
 import java.util.concurrent.TimeUnit
 
-import org.apache.mesos.Protos.Offer
+import org.apache.mesos.Protos.{TaskState, Offer}
 import org.apache.mesos.state.ZooKeeperState
-import org.apache.samza.container.TaskName
+import org.apache.samza.config.{MesosConfig, Config}
+import org.apache.samza.container.{TaskNamesToSystemStreamPartitions, TaskName}
 import org.apache.samza.job.ApplicationStatus._
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.Logging
+import org.apache.samza.util.{Util, Logging}
 
-class SamzaSchedulerState() extends Logging {
+class SamzaSchedulerState(config: Config) extends Logging {
 
   var state = new ZooKeeperState("127.0.0.1:2181", 10, TimeUnit.SECONDS, "/samza-mesos-test")
 
-  // controlled by the Scheduler
+  // State for Samza
+
   var completedTasks = 0
-  var neededExecutors = 0
+
   var failedExecutors = 0
   var releasedExecutors = 0
-  var taskCount = 0
-  var unclaimedTasks = Set[Int]()
+
   var finishedTasks = Set[Int]()
   var runningTasks = Map[Int, Offer]()
   var taskToTaskNames = Map[Int, util.Map[TaskName, util.Set[SystemStreamPartition]]]()
   var status = New
+  var taskCount = config.getTaskCount match {
+    case Some(count) => count
+    case None =>
+      info("No %s specified. Defaulting to one container." format MesosConfig.EXECUTOR_TASK_COUNT)
+      1
+  }
+  var neededExecutors = taskCount
+  var unclaimedTasks = (0 until state.taskCount).toSet
+  val tasksToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, taskCount)
+  val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, tasksToSSPTaskNames)
+
+  // State for Mesos
+
+  var currentState = TaskState.TASK_STARTING
 }

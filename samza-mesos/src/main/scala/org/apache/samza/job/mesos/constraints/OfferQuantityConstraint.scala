@@ -19,7 +19,7 @@
 
 package org.apache.samza.job.mesos.constraints
 
-import org.apache.mesos.Protos.{Attribute, TaskInfo, Offer}
+import org.apache.mesos.Protos.{Offer, TaskInfo}
 
 import scala.concurrent.Future
 
@@ -30,15 +30,10 @@ import scala.concurrent.Future
  * constraints to have a reasonable set of resources to optimize over.
  */
 
-class OfferQuantityConstraint(offers: java.util.Collection[Offer],
-                              tasks: java.util.Collection[TaskInfo]) extends SchedulingConstraint {
-  val numberOfTasks: Option[Int]
-
+class OfferQuantityConstraint() extends SchedulingConstraint {
   /** Determine if all offers satisfy the constraint. . */
-  def satisfied(): Future[Boolean] = future {
-    numberOfTasks match {
-      case Some(count) => if (count >= offers.size()) true else false
-      case _ => false
-    }
+  def satisfied(offers: java.util.Collection[Offer],
+                tasks: java.util.Collection[TaskInfo]): Future[Boolean] = future {
+    if (tasks.size >= offers.size()) true else false
   }
 }

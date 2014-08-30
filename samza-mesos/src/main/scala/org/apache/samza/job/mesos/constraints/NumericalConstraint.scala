@@ -19,23 +19,22 @@
 
 package org.apache.samza.job.mesos.constraints
 
-import org.apache.mesos.Protos.{Attribute, TaskInfo, Offer}
+import org.apache.mesos.Protos.{Attribute, Offer, TaskInfo}
 
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
-class NumericalConstraint(offers: java.util.Collection[Offer],
-                          tasks: java.util.Collection[TaskInfo]) extends SchedulingConstraint {
+class NumericalConstraint() extends SchedulingConstraint {
   val name: Option[String]
   val valueInt: Option[Int]
-  val operation: (Int, Int) => Boolean
+  var operation: Option[((Int, Int) => Int)]
 
   /** Determine if an offer satisfies the constraint. */
   def offerIsSatisfied(offer: Offer): Boolean = {
     offer.getAttributesList.forall((attr: Attribute) =>
-      (name, value, Option(attr.getScalar)) match {
-        case (Some(constraintName), Some(constraintValue), Some(attrScalar)) => {
-          constraintName == attr.getName && attrScalar.getValue operation constraintValue
+      (name, value, Option(attr.getScalar), operation) match {
+        case (Some(constraintName), Some(constraintValue), Some(attrScalar), Some(op)) => {
+          constraintName == attr.getName && attrScalar.getValue op constraintValue
         }
         case _ => false
       }
@@ -43,7 +42,8 @@ class NumericalConstraint(offers: java.util.Collection[Offer],
   }
 
   /** Determine if all offers satisfy the constraint. . */
-  def satisfied(): Future[Boolean] = future {
+  def satisfied(offers: java.util.Collection[Offer],
+                tasks: java.util.Collection[TaskInfo]): Future[Boolean] = future {
     offers.forall(offerIsSatisfied(_))
   }
 }

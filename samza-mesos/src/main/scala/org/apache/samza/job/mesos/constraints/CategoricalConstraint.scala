@@ -19,13 +19,12 @@
 
 package org.apache.samza.job.mesos.constraints
 
-import org.apache.mesos.Protos.{Attribute, TaskInfo, Offer}
+import org.apache.mesos.Protos.{Attribute, Offer, TaskInfo}
 
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
-class CategoricalConstraint(offers: java.util.Collection[Offer],
-                          tasks: java.util.Collection[TaskInfo]) extends SchedulingConstraint {
+class CategoricalConstraint() extends SchedulingConstraint {
   val name: Option[String]
   val value: Option[String]
 
@@ -42,7 +41,8 @@ class CategoricalConstraint(offers: java.util.Collection[Offer],
   }
 
   /** Determine if all offers satisfy the constraint. . */
-  def satisfied(): Future[Boolean] = future {
+  def satisfied(offers: java.util.Collection[Offer],
+                tasks: java.util.Collection[TaskInfo]): Future[Boolean] = future {
     offers.forall(offerIsSatisfied(_))
   }
 }

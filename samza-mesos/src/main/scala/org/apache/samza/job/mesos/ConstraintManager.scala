@@ -19,21 +19,25 @@
 
 package org.apache.samza.job.mesos
 
+import org.apache.mesos.Protos.{Offer, TaskInfo}
 import org.apache.samza.job.mesos.constraints.SchedulingConstraint
 
 class ConstraintManager {
-
   var constraintList: Option[List[SchedulingConstraint]]
 
-  def satisifiesAll(): Boolean = {
-    this.satisifiesAll(constraintList.getOrElse(Nil))
+  def satisifiesAll(offers: java.util.Collection[Offer],
+                    tasks: java.util.Collection[TaskInfo]): Boolean = {
+    this.satisifiesAll(constraintList.getOrElse(Nil), offers, tasks)
   }
-  
-  def satisifiesAll(constraints: List[SchedulingConstraint]): Boolean = {
-    constraints.map(_.satisfied()).reduce(and)
+
+  def satisifiesAll(constraints: List[SchedulingConstraint],
+                    offers: java.util.Collection[Offer],
+                    tasks: java.util.Collection[TaskInfo]): Boolean = {
+    constraints.map(_.satisfied(offers, tasks)).reduce(and)
   }
-  
-  def addConstraints(constraint: SchedulingConstraint): Unit = {
+
+  def addConstraints(constraint: SchedulingConstraint): SchedulingConstraint = {
     constraintList = Option(constraintList.getOrElse(Nil) ::: constraint)
+    this
   }
 }

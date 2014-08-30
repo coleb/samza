@@ -19,12 +19,21 @@
 
 package org.apache.samza.job.mesos
 
-/**
- * Created by jbringhu on 8/27/14.
- */
+import org.apache.samza.job.mesos.constraints.SchedulingConstraint
+
 class ConstraintManager {
 
+  var constraintList: Option[List[SchedulingConstraint]]
 
-
-
+  def satisifiesAll(): Boolean = {
+    this.satisifiesAll(constraintList.getOrElse(Nil))
+  }
+  
+  def satisifiesAll(constraints: List[SchedulingConstraint]): Boolean = {
+    constraints.map(_.satisfied()).reduce(and)
+  }
+  
+  def addConstraints(constraint: SchedulingConstraint): Unit = {
+    constraintList = Option(constraintList.getOrElse(Nil) ::: constraint)
+  }
 }

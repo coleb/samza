@@ -47,7 +47,7 @@ class SamzaScheduler(config: Config, state: SamzaSchedulerState) extends Schedul
   }
 
   val tasksToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, state.taskCount)
-  val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, tasksToSSPTaskNames)
+  val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, tasksToSSPTaskNames
 
   state.neededExecutors = state.taskCount
   state.unclaimedTasks = (0 until state.taskCount).toSet

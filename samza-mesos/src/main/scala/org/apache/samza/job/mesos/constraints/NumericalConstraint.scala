@@ -21,24 +21,29 @@ package org.apache.samza.job.mesos.constraints
 
 import org.apache.mesos.Protos.{Attribute, TaskInfo, Offer}
 
+import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
-/**
- * The offer quantity constraint will hold offers until the specified number of offers have been reached. For simple
- * use cases, it can be used to wait until all tasks have a matching offer. In more complex cases, it may be useful
- * to hold a percentage of offers above the number need to launch all tasks. This allows custom chained optimizing
- * constraints to have a reasonable set of resources to optimize over.
- */
+class NumericalConstraint(offers: java.util.Collection[Offer],
+                          tasks: java.util.Collection[TaskInfo]) extends SchedulingConstraint {
+  val name: Option[String]
+  val valueInt: Option[Int]
+  val operation: (Int, Int) => Boolean
 
-class OfferQuantityConstraint(offers: java.util.Collection[Offer],
-                              tasks: java.util.Collection[TaskInfo]) extends SchedulingConstraint {
-  val numberOfTasks: Option[Int]
+  /** Determine if an offer satisfies the constraint. */
+  def offerIsSatisfied(offer: Offer): Boolean = {
+    offer.getAttributesList.forall((attr: Attribute) =>
+      (name, value, Option(attr.getScalar)) match {
+        case (Some(constraintName), Some(constraintValue), Some(attrScalar)) => {
+          constraintName == attr.getName && attrScalar.getValue operation constraintValue
+        }
+        case _ => false
+      }
+    )
+  }
 
   /** Determine if all offers satisfy the constraint. . */
   def satisfied(): Future[Boolean] = future {
-    numberOfTasks match {
-      case Some(count) => if (count >= offers.size()) true else false
-      case _ => false
-    }
+    offers.forall(offerIsSatisfied(_))
   }
 }

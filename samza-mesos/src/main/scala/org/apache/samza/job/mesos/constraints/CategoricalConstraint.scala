@@ -24,7 +24,8 @@ import org.apache.mesos.Protos.{Attribute, Offer, TaskInfo}
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
-class CategoricalConstraint() extends SchedulingConstraint {
+class CategoricalConstraint(offers: java.util.Collection[Offer],
+                            tasks: java.util.Collection[TaskInfo]) extends SchedulingConstraint {
   val name: Option[String]
   val value: Option[String]
 
@@ -42,7 +43,7 @@ class CategoricalConstraint() extends SchedulingConstraint {
 
   /** Determine if all offers satisfy the constraint. . */
   def satisfied(offers: java.util.Collection[Offer],
-                tasks: java.util.Collection[TaskInfo]): Future[Boolean] = future {
+                tasks: java.util.Collection[TaskInfo]): Future[Boolean] = Future {
     offers.forall(offerIsSatisfied(_))
   }
 }

@@ -21,23 +21,40 @@ package org.apache.samza.job.mesos
 
 import org.apache.mesos.Protos.{Offer, TaskInfo}
 import org.apache.samza.job.mesos.constraints.SchedulingConstraint
+import scala.concurrent.ExecutionContext.Implicits.global
+
+import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 class ConstraintManager {
-  var constraintList: Option[List[SchedulingConstraint]]
+  var constraintList = List[SchedulingConstraint]()
 
-  def satisifiesAll(offers: java.util.Collection[Offer],
+  def satisfiesAll(offers: java.util.Collection[Offer],
                     tasks: java.util.Collection[TaskInfo]): Boolean = {
-    this.satisifiesAll(constraintList.getOrElse(Nil), offers, tasks)
+    this.satisfiesAll(constraintList, offers, tasks)
   }
 
-  def satisifiesAll(constraints: List[SchedulingConstraint],
+  def satisfiesAll(constraints: List[SchedulingConstraint],
                     offers: java.util.Collection[Offer],
                     tasks: java.util.Collection[TaskInfo]): Boolean = {
-    constraints.map(_.satisfied(offers, tasks)).reduce(and)
+    var success: Boolean = false
+    Future.reduce(constraints.map(_.satisfied(offers, tasks)))(_ && _).onComplete {
+      case Success(value) => success = value
+      case Failure(e) => {
+        e.printStackTrace
+        success = false
+      }
+    }
+    success
   }
 
-  def addConstraints(constraint: SchedulingConstraint): SchedulingConstraint = {
-    constraintList = Option(constraintList.getOrElse(Nil) ::: constraint)
+  def addConstraints(constraints: List[SchedulingConstraint]): ConstraintManager = {
+    constraintList = constraintList ++ constraints
+    this
+  }
+
+  def addConstraint(constraint: SchedulingConstraint): ConstraintManager = {
+    constraintList = constraintList :+ constraint
     this
   }
 }

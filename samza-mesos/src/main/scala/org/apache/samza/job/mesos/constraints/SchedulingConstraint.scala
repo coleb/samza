@@ -23,9 +23,8 @@ import org.apache.mesos.Protos.{Offer, OfferID, TaskInfo}
 
 import scala.concurrent.Future
 
-abstract class SchedulingConstraint() {
-  val offers: java.util.Collection[Offer]
-  val tasks: java.util.Collection[TaskInfo]
+abstract class SchedulingConstraint(offers: java.util.Collection[Offer],
+                                    tasks: java.util.Collection[TaskInfo]) {
 
   /**
    * Determine if the specified set of offers satisfies the constraint requirements.
@@ -36,7 +35,7 @@ abstract class SchedulingConstraint() {
   /**
    * Determine this constraint's preference for mapping tasks to offers, if any.
    */
-  def mappingPreference(): Future[Option[(List[OfferID], List[TaskInfo])]] = future {
+  def mappingPreference(): Future[Option[(List[OfferID], List[TaskInfo])]] = Future {
     None
   }
 }

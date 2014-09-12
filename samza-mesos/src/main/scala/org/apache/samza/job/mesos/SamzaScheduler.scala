@@ -21,6 +21,7 @@ package org.apache.samza.job.mesos
 
 import java.util
 
+import org.apache.mesos.Protos.Environment._
 import org.apache.mesos.Protos._
 import org.apache.mesos.{Scheduler, SchedulerDriver}
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder}
@@ -29,105 +30,143 @@ import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.MesosConfig
 import org.apache.samza.config.MesosConfig.Config2Mesos
 import org.apache.samza.util.Util
+
 import scala.collection.JavaConversions._
 
 import org.apache.samza.util.Logging
 import org.apache.samza.container.TaskNamesToSystemStreamPartitions
 
-class SamzaScheduler(config: Config, state: SamzaSchedulerState) extends Scheduler with Logging {
-  var currentState = TaskState.TASK_STARTING
+class SamzaScheduler(config: Config,
+                     state: SamzaSchedulerState,
+                     constraintManager: ConstraintManager) extends Scheduler with Logging {
 
-  state.taskCount = config.getTaskCount match {
-    case Some(count) => count
-    case None =>
-      info("No %s specified. Defaulting to one container." format MesosConfig.EXECUTOR_TASK_COUNT)
-      1
-  }
+  var offerPool: util.List[Offer]
+  var unclaimedTaskPool = getTaskPool()
 
-  val tasksToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, state.taskCount)
-  val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, tasksToSSPTaskNames)
+  info("Mesos scheduler created.")
 
-  state.neededExecutors = state.taskCount
-  state.unclaimedTasks = (0 until state.taskCount).toSet
-
-  info("Awaiting offers for %s executors" format state.taskCount)
-
-  def registered(driver: SchedulerDriver, p2: FrameworkID, p3: MasterInfo) {
+  def registered(driver: SchedulerDriver, framework: FrameworkID, master: MasterInfo) {
       info("Framework registered")
   }
 
-  def reregistered(driver: SchedulerDriver, p2: MasterInfo) {}
+  def reregistered(driver: SchedulerDriver, master: MasterInfo): Unit = {
+    info("Framework re-registered")
+  }
 
-  def offerRescinded(driver: SchedulerDriver, p2: OfferID) {}
+  def offerRescinded(driver: SchedulerDriver, offer: OfferID): Unit = {
+    info("An offer was rescinded")
+  }
 
-  def resourceOffers(driver: SchedulerDriver, offers: util.List[Offer]) {
-    for (offer <- offers) {
-      info("Received offer " + offer)
+  def getScalarResource(name: String, value: Int): Unit = {
+    Resource.newBuilder
+      .setName(name)
+      .setType(Value.Type.SCALAR)
+      .setScalar(Value.Scalar.newBuilder().setValue(value))
+  }
 
-      state.unclaimedTasks.headOption match {
-        case Some(taskId) => {
-          info("Got available task id (%d) for offer: %s" format(taskId, offer))
+  def getTaskCommandInfo(): CommandInfo = {
 
-          val sspTaskNames: TaskNamesToSystemStreamPartitions = tasksToSSPTaskNames.getOrElse(taskId, TaskNamesToSystemStreamPartitions())
-          info("Claimed SSP taskNames %s for offer ID %s" format(sspTaskNames, taskId))
+    val packagePath = config.getPackagePath.get
+    info("Starting task ID %s using package path %s" format (taskId, packagePath))
 
-          val cmdBuilderClassName = config.getCommandClass.getOrElse(classOf[ShellCommandBuilder].getName)
-          val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
-            .setConfig(config)
-            .setName("samza-executor-%s" format taskId.toString)
-            .setTaskNameToSystemStreamPartitionsMapping(sspTaskNames.getJavaFriendlyType)
-            .setTaskNameToChangeLogPartitionMapping(taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2)))
-          val command = cmdBuilder.buildCommand
-          info("Task ID %s using command %s" format(taskId, command))
+    val uriCommandInfo = CommandInfo.URI.newBuilder()
+      .setValue(packagePath)
+      .setExtract(true)
+      .build()
 
-          val cpuResource = Resource.newBuilder
-            .setName("cpus")
-            .setType(Value.Type.SCALAR)
-            .setScalar(Value.Scalar.newBuilder().setValue(1))
+    val sspTaskNames: TaskNamesToSystemStreamPartitions = tasksToSSPTaskNames.getOrElse(taskId, TaskNamesToSystemStreamPartitions())
+    info("Claimed SSP taskNames %s for offer ID %s" format(sspTaskNames, taskId))
 
-          val commandInfo = CommandInfo.newBuilder
-            .setValue(command)
+    val cmdBuilderClassName = config.getCommandClass.getOrElse(classOf[ShellCommandBuilder].getName)
+    val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
+      .setConfig(config)
+      .setName("samza-executor-%s" format taskId.toString)
+      .setTaskNameToSystemStreamPartitionsMapping(sspTaskNames.getJavaFriendlyType)
+      .setTaskNameToChangeLogPartitionMapping(state.taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2)))
 
-          val task = TaskInfo.newBuilder
-            .setName("samza-executor-%s" format taskId)
-            .setTaskId(TaskID.newBuilder().setValue(taskId.toString).build())
-            .setSlaveId(offer.getSlaveId)
-            .addResources(cpuResource)
-            .setCommand(commandInfo)
-            .build
+    val env = cmdBuilder.buildEnvironment.map { case (k, v) => (k, Util.envVarEscape(v)) }
+    info("Task ID %s using env %s" format (taskId, env))
 
-          /** FIXME: set package path somehow */
-
-          info("Launching task " + taskId)
-          driver.launchTasks(util.Arrays.asList(offer.getId), util.Arrays.asList(task))
-          info("Started task ID %s" format taskId)
-
-          state.neededExecutors -= 1
-          state.runningTasks += taskId -> offer
-          state.unclaimedTasks -= taskId
-          state.taskToTaskNames += taskId -> sspTaskNames.getJavaFriendlyType
-        }
-        case _ => {
-          // there are no more tasks to run, so decline the offer
-          info("Declining offer")
-          driver.declineOffer(offer.getId)
-        }
+    val envInfo = {
+      val builder = Environment.newBuilder()
+      for ((key, value) <- env) {
+        val variable = Variable.newBuilder().setName(key).setValue(value)
+        builder.addVariables(variable)
       }
+      builder.build()
+    }
+
+    val basename = "/home/jbringhu/samza-dev/hello-samza/deploy/samza"
+    val command = "cd %s*; %s".format(basename, cmdBuilder.buildCommand)
+    info("Task ID %s using command %s" format(taskId, command))
+
+    val commandInfo = CommandInfo.newBuilder
+      .setEnvironment(envInfo)
+      .addUris(uriCommandInfo)
+      .setValue(command)
+  }
+
+  def getUnclaimedTaskPool(): util.List[TaskInfo] = {
+    val pool: util.List[TaskInfo] = new util.ArrayList
+
+    for(task <- state.unclaimedTasks) {
+      info("Adding task with id %d to the unclaimed task pool")
+
+      val task = TaskInfo.newBuilder
+        .setName("samza-executor-%s" format taskId)
+        .setTaskId(TaskID.newBuilder().setValue(taskId.toString).build())
+        .setSlaveId(offer.getSlaveId)
+        .addResources(getScalarResource("cpus", 1))
+        .addResources(getScalarResource("disk", 4192))
+        .addResources(getScalarResource("mem", 1024))
+        .setCommand(getTaskCommandInfo())
+        .build
+
+      pool.add(task)
     }
   }
 
-  override def statusUpdate(d: SchedulerDriver, status: TaskStatus): Unit = {
-    info("Status Update for Task %s: %s", status.getTaskId, status.getState)
+  def resourceOffers(driver: SchedulerDriver, offers: util.List[Offer]) {
+    info("Received offers.")
+    offerPool.addAll(offers)
+
+    if(constraintManager.satisifiesAll(offerPool, taskPool)) {
+      info("Resource constraints have been satisfied, attempting to launch job.")
+
+      // TODO: launch the tasks
+      //driver.launchTasks(util.Arrays.asList(offer.getId), util.Arrays.asList(task))
+
+      // TODO: update the appropriate state
+      //state.neededExecutors -= 1
+      //state.runningTasks += taskId -> offer
+      //state.unclaimedTasks -= taskId
+      //state.taskToTaskNames += taskId -> sspTaskNames.getJavaFriendlyType
+
+    } else {
+      info("Resource constraints have not been satisfied, awaiting offers.")
+    }
+  }
+
+  override def statusUpdate(driver: SchedulerDriver, status: TaskStatus) {
+    info("Status update for Task %s: %s".format(status.getTaskId, status.getState))
     currentState = status.getState
   }
 
-  def frameworkMessage(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, p4: Array[Byte]) {}
+  def frameworkMessage(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, data: Array[Byte]): Unit = {
+    info("A framework message was received.")
+  }
 
-  def disconnected(driver: SchedulerDriver) {}
+  def disconnected(driver: SchedulerDriver): Unit = {
+    info("Framework has been disconnected")
+  }
 
-  def slaveLost(driver: SchedulerDriver, slave: SlaveID) {}
+  def slaveLost(driver: SchedulerDriver, slave: SlaveID): Unit = {
+    info("A slave has been lost")
+  }
 
-  def executorLost(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, p4: Int) {}
+  def executorLost(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, status: Int): Unit = {
+    info("An executor has been lost.")
+  }
 
   def error(driver: SchedulerDriver, error: String) {
     info("Error reported: %s" format error)

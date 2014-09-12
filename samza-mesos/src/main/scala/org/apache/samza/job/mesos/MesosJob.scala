@@ -25,6 +25,7 @@ import org.apache.mesos.Protos.{Status, TaskState, FrameworkInfo, FrameworkID}
 import org.apache.mesos.MesosSchedulerDriver
 import org.apache.mesos.state.{State, ZooKeeperState}
 import org.apache.samza.job.ApplicationStatus._
+import org.apache.samza.job.mesos.constraints.OfferQuantityConstraint
 import org.apache.samza.job.{ApplicationStatus, StreamJob}
 import org.apache.samza.config.Config
 import org.apache.samza.config.TaskConfig.Config2Task
@@ -34,9 +35,10 @@ import org.apache.samza.config.MesosConfig.Config2Mesos
 /* A MesosJob is a wrapper for a Mesos Scheduler. */
 class MesosJob(config: Config) extends StreamJob {
 
-  val state = new SamzaSchedulerState()
+  val state = new SamzaSchedulerState(config)
   val frameworkInfo = getFrameworkInfo
-  val scheduler = new SamzaScheduler(config, state)
+  val constraintManager = getConstraintManager
+  val scheduler = new SamzaScheduler(config, state, constraintManager)
   val driver = new MesosSchedulerDriver(scheduler, frameworkInfo, "zk://localhost:2181/mesos")
 
   def getStatus: ApplicationStatus = {
@@ -66,6 +68,12 @@ class MesosJob(config: Config) extends StreamJob {
 
   def getState: State = {
     new ZooKeeperState("localhost:2181", 10, TimeUnit.SECONDS, "/mesos")
+  }
+
+  def getConstraintManager: ConstraintManager = {
+    val constraints = List(new OfferQuantityConstraint)
+    /* TODO: generate list of constraints from config. */
+    (new ConstraintManager).addConstraints(constraints)
   }
 
   def kill: StreamJob = {

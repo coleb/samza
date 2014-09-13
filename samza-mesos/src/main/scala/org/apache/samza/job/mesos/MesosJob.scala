@@ -35,22 +35,14 @@ import org.apache.samza.config.MesosConfig.Config2Mesos
 /* A MesosJob is a wrapper for a Mesos Scheduler. */
 class MesosJob(config: Config) extends StreamJob {
 
-  val state = new SamzaSchedulerState(config)
+  val state = new SamzaSchedulerState(getState, config)
   val frameworkInfo = getFrameworkInfo
   val constraintManager = getConstraintManager
   val scheduler = new SamzaScheduler(config, state, constraintManager)
   val driver = new MesosSchedulerDriver(scheduler, frameworkInfo, "zk://localhost:2181/mesos")
 
   def getStatus: ApplicationStatus = {
-    scheduler.currentState match {
-      case TaskState.TASK_FAILED => ApplicationStatus.UnsuccessfulFinish
-      case TaskState.TASK_FINISHED => ApplicationStatus.SuccessfulFinish
-      case TaskState.TASK_KILLED => ApplicationStatus.UnsuccessfulFinish
-      case TaskState.TASK_LOST => ApplicationStatus.UnsuccessfulFinish
-      case TaskState.TASK_RUNNING => ApplicationStatus.Running
-      case TaskState.TASK_STAGING => ApplicationStatus.New
-      case TaskState.TASK_STARTING => ApplicationStatus.New
-    }
+    state.status
   }
 
   def getFrameworkInfo: FrameworkInfo = {
@@ -71,7 +63,7 @@ class MesosJob(config: Config) extends StreamJob {
   }
 
   def getConstraintManager: ConstraintManager = {
-    val constraints = List(new OfferQuantityConstraint)
+    val constraints = List()
     /* TODO: generate list of constraints from config. */
     (new ConstraintManager).addConstraints(constraints)
   }

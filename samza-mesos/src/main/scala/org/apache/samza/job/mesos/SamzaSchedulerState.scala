@@ -23,40 +23,51 @@ import java.util
 import java.util.concurrent.TimeUnit
 
 import org.apache.mesos.Protos.{TaskState, Offer}
+import org.apache.mesos.state.State
+
 import org.apache.mesos.state.ZooKeeperState
-import org.apache.samza.config.{MesosConfig, Config}
 import org.apache.samza.container.{TaskNamesToSystemStreamPartitions, TaskName}
+import org.apache.samza.job.ApplicationStatus
 import org.apache.samza.job.ApplicationStatus._
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.{Util, Logging}
 
-class SamzaSchedulerState(config: Config) extends Logging {
+import org.apache.samza.config.Config
+import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.config.MesosConfig
+import org.apache.samza.config.MesosConfig.Config2Mesos
 
-  var state = new ZooKeeperState("127.0.0.1:2181", 10, TimeUnit.SECONDS, "/samza-mesos-test")
+class SamzaSchedulerState(persistentStore: State, config: Config) extends Logging {
+  var completedTasks: Int = 0
+  var failedExecutors: Int = 0
+  var releasedExecutors: Int = 0
 
-  // State for Samza
+  var finishedTasks: Set[Int] = Set()
+  var runningTasks: Map[Int, Offer] = Map()
+  var taskToTaskNames: Map[Int, util.Map[TaskName, util.Set[SystemStreamPartition]]] = Map()
+  var status: ApplicationStatus = New
 
-  var completedTasks = 0
+  var taskCount: Int = config.getTaskCount.getOrElse(1)
+  var neededExecutors: Int = taskCount
+  var unclaimedTasks: Set[Int] = (0 until taskCount).toSet
+  var tasksToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, taskCount)
+  var taskNameToChangeLogPartitionMapping: Map[TaskName, Int] = Util.getTaskNameToChangeLogPartitionMapping(config, tasksToSSPTaskNames)
 
-  var failedExecutors = 0
-  var releasedExecutors = 0
+  var currentState: TaskState = TaskState.TASK_STARTING
 
-  var finishedTasks = Set[Int]()
-  var runningTasks = Map[Int, Offer]()
-  var taskToTaskNames = Map[Int, util.Map[TaskName, util.Set[SystemStreamPartition]]]()
-  var status = New
-  var taskCount = config.getTaskCount match {
-    case Some(count) => count
-    case None =>
-      info("No %s specified. Defaulting to one container." format MesosConfig.EXECUTOR_TASK_COUNT)
-      1
+  def persist(): Boolean = {
+    persist(persistentStore)
   }
-  var neededExecutors = taskCount
-  var unclaimedTasks = (0 until state.taskCount).toSet
-  val tasksToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, taskCount)
-  val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, tasksToSSPTaskNames)
 
-  // State for Mesos
+  def restore(): Boolean = {
+    restore(persistentStore)
+  }
 
-  var currentState = TaskState.TASK_STARTING
+  def persist(persistentStore: State): Boolean = {
+     false
+  }
+
+  def restore(persistentStore: State): Boolean = {
+    false
+  }
 }

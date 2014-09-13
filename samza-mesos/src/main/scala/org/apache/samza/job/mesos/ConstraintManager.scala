@@ -19,24 +19,29 @@
 
 package org.apache.samza.job.mesos
 
-import org.apache.mesos.Protos.{Offer, TaskInfo}
+import org.apache.mesos.Protos.{TaskInfoOrBuilder, Offer, TaskInfo}
 import org.apache.samza.job.mesos.constraints.SchedulingConstraint
-import scala.concurrent.ExecutionContext.Implicits.global
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
+/** The constraint manager holds the state of all scheduling constraints, such
+  * as when enough offers are available to launch the entire job, and then
+  * calculates a response when necessary by computing the resource requirements
+  * in parallel. Each scheduling constraint is responsible for its own timeout.
+  */
 class ConstraintManager {
   var constraintList = List[SchedulingConstraint]()
 
   def satisfiesAll(offers: java.util.Collection[Offer],
-                    tasks: java.util.Collection[TaskInfo]): Boolean = {
+                   tasks: java.util.Collection[TaskInfoOrBuilder]): Boolean = {
     this.satisfiesAll(constraintList, offers, tasks)
   }
 
   def satisfiesAll(constraints: List[SchedulingConstraint],
-                    offers: java.util.Collection[Offer],
-                    tasks: java.util.Collection[TaskInfo]): Boolean = {
+                   offers: java.util.Collection[Offer],
+                   tasks: java.util.Collection[TaskInfoOrBuilder]): Boolean = {
     var success: Boolean = false
     Future.reduce(constraints.map(_.satisfied(offers, tasks)))(_ && _).onComplete {
       case Success(value) => success = value

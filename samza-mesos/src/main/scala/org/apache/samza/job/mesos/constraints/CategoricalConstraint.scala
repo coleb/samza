@@ -19,31 +19,26 @@
 
 package org.apache.samza.job.mesos.constraints
 
-import org.apache.mesos.Protos.{Attribute, Offer, TaskInfo}
+import org.apache.mesos.Protos.{Attribute, Offer, TaskInfoOrBuilder}
 
 import scala.collection.JavaConversions._
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class CategoricalConstraint(offers: java.util.Collection[Offer],
-                            tasks: java.util.Collection[TaskInfo]) extends SchedulingConstraint {
-  val name: Option[String]
-  val value: Option[String]
+class CategoricalConstraint(name: String, value: String,
+                            offers: java.util.Collection[Offer],
+                            tasks: java.util.Collection[TaskInfoOrBuilder]) extends SchedulingConstraint(offers, tasks) {
 
   /** Determine if an offer satisfies the constraint. */
   def offerIsSatisfied(offer: Offer): Boolean = {
-    offer.getAttributesList.forall((attr: Attribute) =>
-      (name, value, Option(attr.getText)) match {
-        case (Some(constraintName), Some(constraintValue), Some(attrText)) => {
-          constraintName == attr.getName && attrText.getValue == constraintValue
-        }
-        case _ => false
-      }
-    )
+    offer.getAttributesList.exists { attr =>
+        attr.getName == name && attr.getText == value
+    }
   }
 
   /** Determine if all offers satisfy the constraint. . */
   def satisfied(offers: java.util.Collection[Offer],
-                tasks: java.util.Collection[TaskInfo]): Future[Boolean] = Future {
+                tasks: java.util.Collection[TaskInfoOrBuilder]): Future[Boolean] = Future {
     offers.forall(offerIsSatisfied(_))
   }
 }

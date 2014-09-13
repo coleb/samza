@@ -37,7 +37,7 @@ import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.MesosConfig
 import org.apache.samza.config.MesosConfig.Config2Mesos
 
-class SamzaSchedulerState(persistentStore: State, config: Config) extends Logging {
+class SamzaSchedulerState(config: Config) extends Logging {
   var completedTasks: Int = 0
   var failedExecutors: Int = 0
   var releasedExecutors: Int = 0
@@ -54,20 +54,4 @@ class SamzaSchedulerState(persistentStore: State, config: Config) extends Loggin
   var taskNameToChangeLogPartitionMapping: Map[TaskName, Int] = Util.getTaskNameToChangeLogPartitionMapping(config, tasksToSSPTaskNames)
 
   var currentState: TaskState = TaskState.TASK_STARTING
-
-  def persist(): Boolean = {
-    persist(persistentStore)
-  }
-
-  def restore(): Boolean = {
-    restore(persistentStore)
-  }
-
-  def persist(persistentStore: State): Boolean = {
-     false
-  }
-
-  def restore(persistentStore: State): Boolean = {
-    false
-  }
 }

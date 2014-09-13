@@ -32,9 +32,7 @@ import scala.concurrent.Future
  * constraints to have a reasonable set of resources to optimize over.
  */
 
-class OfferQuantityConstraint(offers: java.util.Collection[Offer],
-                              tasks: java.util.Collection[TaskInfoOrBuilder]) extends SchedulingConstraint(offers, tasks) {
-
+class OfferQuantityConstraint extends SchedulingConstraint {
   /** Determine if all offers satisfy the constraint. . */
   def satisfied(offers: java.util.Collection[Offer],
                 tasks: java.util.Collection[TaskInfoOrBuilder]): Future[Boolean] = Future {

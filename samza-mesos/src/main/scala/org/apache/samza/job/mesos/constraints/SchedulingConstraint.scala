@@ -24,9 +24,7 @@ import org.apache.mesos.Protos.{Offer, OfferID, TaskInfoOrBuilder}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-abstract class SchedulingConstraint(offers: java.util.Collection[Offer],
-                                    tasks: java.util.Collection[TaskInfoOrBuilder]) {
-
+abstract class SchedulingConstraint {
   /**
    * Determine if the specified set of offers satisfies the constraint requirements.
    */

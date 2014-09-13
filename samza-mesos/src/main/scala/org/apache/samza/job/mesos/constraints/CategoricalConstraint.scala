@@ -25,10 +25,7 @@ import scala.collection.JavaConversions._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class CategoricalConstraint(name: String, value: String,
-                            offers: java.util.Collection[Offer],
-                            tasks: java.util.Collection[TaskInfoOrBuilder]) extends SchedulingConstraint(offers, tasks) {
-
+class CategoricalConstraint(name: String, value: String) extends SchedulingConstraint {
   /** Determine if an offer satisfies the constraint. */
   def offerIsSatisfied(offer: Offer): Boolean = {
     offer.getAttributesList.exists { attr =>

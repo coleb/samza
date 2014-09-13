@@ -25,9 +25,7 @@ import scala.collection.JavaConversions._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class NumericalConstraint(name: String, func: (Double) => Boolean,
-                          offers: java.util.Collection[Offer],
-                          tasks: java.util.Collection[TaskInfoOrBuilder]) extends SchedulingConstraint(offers, tasks) {
+class NumericalConstraint(name: String, func: (Double) => Boolean) extends SchedulingConstraint {
 
   /** Determine if an offer satisfies the constraint. */
   def offerIsSatisfied(offer: Offer): Boolean = {

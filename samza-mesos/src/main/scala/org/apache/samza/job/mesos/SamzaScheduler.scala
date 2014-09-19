@@ -41,7 +41,7 @@ class SamzaScheduler(config: Config,
                      constraintManager: ConstraintManager) extends Scheduler with Logging {
 
   var offerPool: util.List[Offer] = List()
-  var unclaimedTaskPool = getUnclaimedTaskPool()
+  var unclaimedTaskPool = getUnclaimedTaskPool
 
   info("Mesos scheduler created.")
 
@@ -108,7 +108,7 @@ class SamzaScheduler(config: Config,
       .build
   }
 
-  def getUnclaimedTaskPool(): util.List[TaskInfoOrBuilder] = {
+  def getUnclaimedTaskPool: util.List[TaskInfoOrBuilder] = {
     val pool: util.List[TaskInfoOrBuilder] = new util.ArrayList
 
     for (taskId <- state.unclaimedTasks) {
@@ -131,7 +131,7 @@ class SamzaScheduler(config: Config,
 
   def resourceOffers(driver: SchedulerDriver, offers: util.List[Offer]) {
     info("Received offers.")
-    offerPool.addAll(offers)
+    offerPool = offerPool ++ offers
 
     if (constraintManager.satisfiesAll(offerPool, unclaimedTaskPool)) {
       info("Resource constraints have been satisfied, attempting to launch job.")

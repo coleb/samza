@@ -21,20 +21,17 @@ package org.apache.samza.job.mesos.constraints
 
 import org.apache.mesos.Protos.{Offer, OfferID, TaskInfoOrBuilder}
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-
 abstract class SchedulingConstraint {
   /**
    * Determine if the specified set of offers satisfies the constraint requirements.
    */
   def satisfied(offers: java.util.Collection[Offer],
-                tasks: java.util.Collection[TaskInfoOrBuilder]): Future[Boolean]
+                tasks: java.util.Collection[TaskInfoOrBuilder]): Boolean
 
   /**
    * Determine this constraint's preference for mapping tasks to offers, if any.
    */
-  def mappingPreference(): Future[Option[(List[OfferID], List[TaskInfoOrBuilder])]] = Future {
+  def mappingPreference(): Option[(List[OfferID], List[TaskInfoOrBuilder])] = {
     None
   }
 }

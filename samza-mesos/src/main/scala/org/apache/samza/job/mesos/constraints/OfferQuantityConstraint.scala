@@ -21,9 +21,7 @@ package org.apache.samza.job.mesos.constraints
 
 
 import org.apache.mesos.Protos.{Offer, TaskInfoOrBuilder}
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import org.apache.samza.util.Logging
 
 /**
  * The offer quantity constraint will hold offers until the specified number of offers have been reached. For simple
@@ -32,10 +30,16 @@ import scala.concurrent.Future
  * constraints to have a reasonable set of resources to optimize over.
  */
 
-class OfferQuantityConstraint extends SchedulingConstraint {
+class OfferQuantityConstraint extends SchedulingConstraint with Logging {
   /** Determine if all offers satisfy the constraint. . */
   def satisfied(offers: java.util.Collection[Offer],
-                tasks: java.util.Collection[TaskInfoOrBuilder]): Future[Boolean] = Future {
-    if (tasks.size >= offers.size()) true else false
+                tasks: java.util.Collection[TaskInfoOrBuilder]): Boolean = {
+    if (offers.size() >= tasks.size()) {
+      info("Determined that existing offer pool satisfies the job offer quantity constraint (tasks=%d, offers=%d).".format(offers.size(), tasks.size()))
+      true
+    } else {
+      info("Determined that the existing offer pool does not satisfy the job offer quantity constraint (tasks=%d, offers=%d).".format(offers.size(), tasks.size()))
+      false
+    }
   }
 }

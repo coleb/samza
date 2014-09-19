@@ -22,10 +22,6 @@ package org.apache.samza.job.mesos
 import org.apache.mesos.Protos.{TaskInfoOrBuilder, Offer, TaskInfo}
 import org.apache.samza.job.mesos.constraints.SchedulingConstraint
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.util.{Failure, Success}
-
 /** The constraint manager holds the state of all scheduling constraints, such
   * as when enough offers are available to launch the entire job, and then
   * calculates a response when necessary by computing the resource requirements
@@ -42,15 +38,7 @@ class ConstraintManager {
   def satisfiesAll(constraints: List[SchedulingConstraint],
                    offers: java.util.Collection[Offer],
                    tasks: java.util.Collection[TaskInfoOrBuilder]): Boolean = {
-    var success: Boolean = false
-    Future.reduce(constraints.map(_.satisfied(offers, tasks)))(_ && _).onComplete {
-      case Success(value) => success = value
-      case Failure(e) => {
-        e.printStackTrace
-        success = false
-      }
-    }
-    success
+    constraints.map(_.satisfied(offers, tasks)).reduce(_&&_)
   }
 
   def addConstraints(constraints: List[SchedulingConstraint]): ConstraintManager = {

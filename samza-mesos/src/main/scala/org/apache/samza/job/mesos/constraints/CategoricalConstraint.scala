@@ -22,20 +22,16 @@ package org.apache.samza.job.mesos.constraints
 import org.apache.mesos.Protos.{Attribute, Offer, TaskInfoOrBuilder}
 
 import scala.collection.JavaConversions._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 
 class CategoricalConstraint(name: String, value: String) extends SchedulingConstraint {
   /** Determine if an offer satisfies the constraint. */
-  def offerIsSatisfied(offer: Offer): Boolean = {
-    offer.getAttributesList.exists { attr =>
-        attr.getName == name && attr.getText == value
-    }
+  def offerIsSatisfied(offer: Offer): Boolean = offer.getAttributesList exists { attr =>
+    attr.getName == name && attr.getText.getValue == value
   }
 
   /** Determine if all offers satisfy the constraint. . */
   def satisfied(offers: java.util.Collection[Offer],
-                tasks: java.util.Collection[TaskInfoOrBuilder]): Future[Boolean] = Future {
-    offers.forall(offerIsSatisfied(_))
+                tasks: java.util.Collection[TaskInfoOrBuilder]): Boolean = {
+    offers forall offerIsSatisfied
   }
 }

@@ -19,7 +19,7 @@
 
 package org.apache.samza.job.mesos
 
-import org.apache.mesos.Protos.{TaskInfoOrBuilder, Offer, TaskInfo}
+import org.apache.mesos.Protos.{Offer, TaskInfoOrBuilder}
 import org.apache.samza.job.mesos.constraints.SchedulingConstraint
 
 /** The constraint manager holds the state of all scheduling constraints, such
@@ -31,13 +31,13 @@ class ConstraintManager {
   var constraintList = List[SchedulingConstraint]()
 
   def satisfiesAll(offers: java.util.Collection[Offer],
-                   tasks: java.util.Collection[TaskInfoOrBuilder]): Boolean = {
+                   tasks: java.util.Collection[MesosTask]): Boolean = {
     this.satisfiesAll(constraintList, offers, tasks)
   }
 
   def satisfiesAll(constraints: List[SchedulingConstraint],
                    offers: java.util.Collection[Offer],
-                   tasks: java.util.Collection[TaskInfoOrBuilder]): Boolean = {
+                   tasks: java.util.Collection[MesosTask]): Boolean = {
     constraints.map(_.satisfied(offers, tasks)).reduce(_&&_)
   }
 

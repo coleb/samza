@@ -19,7 +19,8 @@
 
 package org.apache.samza.job.mesos.constraints
 
-import org.apache.mesos.Protos.{Attribute, Offer, TaskInfoOrBuilder}
+import org.apache.mesos.Protos.{Attribute, Offer}
+import org.apache.samza.job.mesos.MesosTask
 
 import scala.collection.JavaConversions._
 
@@ -31,7 +32,7 @@ class CategoricalConstraint(name: String, value: String) extends SchedulingConst
 
   /** Determine if all offers satisfy the constraint. . */
   def satisfied(offers: java.util.Collection[Offer],
-                tasks: java.util.Collection[TaskInfoOrBuilder]): Boolean = {
+                tasks: java.util.Collection[MesosTask]): Boolean = {
     offers forall offerIsSatisfied
   }
 }

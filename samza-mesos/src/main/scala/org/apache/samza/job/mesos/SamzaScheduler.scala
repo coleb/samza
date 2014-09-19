@@ -36,12 +36,11 @@ import scala.collection.JavaConversions._
 import org.apache.samza.util.Logging
 import org.apache.samza.container.TaskNamesToSystemStreamPartitions
 
+import scala.collection.JavaConverters._
+
 class SamzaScheduler(config: Config,
                      state: SamzaSchedulerState,
                      constraintManager: ConstraintManager) extends Scheduler with Logging {
-
-  var offerPool: util.List[Offer] = List()
-  var unclaimedTaskPool = getUnclaimedTaskPool
 
   info("Mesos scheduler created.")
 
@@ -57,93 +56,25 @@ class SamzaScheduler(config: Config,
     info("An offer was rescinded")
   }
 
-  def getScalarResource(name: String, value: Int): Resource = {
-    Resource.newBuilder
-      .setName(name)
-      .setType(Value.Type.SCALAR)
-      .setScalar(Value.Scalar.newBuilder().setValue(value))
-      .build
-  }
-
-  def getTaskCommandInfo(taskId: Int): CommandInfo = {
-
-    val packagePath = config.getPackagePath.get
-    info("Starting task ID %s using package path %s" format(taskId, packagePath))
-
-    val uriCommandInfo = CommandInfo.URI.newBuilder()
-      .setValue(packagePath)
-      .setExtract(true)
-      .build()
-
-    val sspTaskNames: TaskNamesToSystemStreamPartitions = state.tasksToSSPTaskNames.getOrElse(taskId, TaskNamesToSystemStreamPartitions())
-    info("Claimed SSP taskNames %s for offer ID %s" format(sspTaskNames, taskId))
-
-    val cmdBuilderClassName = config.getCommandClass.getOrElse(classOf[ShellCommandBuilder].getName)
-    val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
-      .setConfig(config)
-      .setName("samza-executor-%s" format taskId.toString)
-      .setTaskNameToSystemStreamPartitionsMapping(sspTaskNames.getJavaFriendlyType)
-      .setTaskNameToChangeLogPartitionMapping(state.taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2)))
-
-    val env = cmdBuilder.buildEnvironment.map { case (k, v) => (k, Util.envVarEscape(v))}
-    info("Task ID %s using env %s" format(taskId, env))
-
-    val envInfo = {
-      val builder = Environment.newBuilder()
-      for ((key, value) <- env) {
-        val variable = Variable.newBuilder().setName(key).setValue(value)
-        builder.addVariables(variable)
-      }
-      builder.build()
-    }
-
-    val basename = "/home/jbringhu/samza-dev/hello-samza/deploy/samza"
-    val command = "cd %s*; %s".format(basename, cmdBuilder.buildCommand)
-    info("Task ID %s using command %s" format(taskId, command))
-
-    CommandInfo.newBuilder
-      .setEnvironment(envInfo)
-      .addUris(uriCommandInfo)
-      .setValue(command)
-      .build
-  }
-
-  def getUnclaimedTaskPool: util.List[TaskInfoOrBuilder] = {
-    val pool: util.List[TaskInfoOrBuilder] = new util.ArrayList
-
-    for (taskId <- state.unclaimedTasks) {
-      info("Adding task with id %d to the unclaimed task pool")
-
-      /* Since the slave id isn't set yet, we can't build here. */
-      val newTask = TaskInfo.newBuilder
-        .setName("samza-executor-%s" format taskId)
-        .setTaskId(TaskID.newBuilder().setValue(taskId.toString).build())
-        .addResources(getScalarResource("cpus", 1))
-        .addResources(getScalarResource("disk", 4192))
-        .addResources(getScalarResource("mem", 1024))
-        .setCommand(getTaskCommandInfo(taskId))
-
-      pool.add(newTask)
-    }
-
-    pool
-  }
-
   def resourceOffers(driver: SchedulerDriver, offers: util.List[Offer]) {
+
     info("Received offers.")
-    offerPool = offerPool ++ offers
+    state.offerPool ++= offers
 
-    if (constraintManager.satisfiesAll(offerPool, unclaimedTaskPool)) {
-      info("Resource constraints have been satisfied, attempting to launch job.")
+    if (constraintManager.satisfiesAll(state.offerPool, state.unclaimedTasks)) {
+      info("Resource constraints have been satisfied.")
 
-      // TODO: launch the tasks
-      //driver.launchTasks(util.Arrays.asList(offer.getId), util.Arrays.asList(task))
+      info("Assigning tasks to offers.")
+      val preparedTasks: util.List[TaskInfo] = new util.ArrayList[TaskInfo]
+      for( (offer, task) <- (state.offerPool zip state.unclaimedTasks)) {
+        preparedTasks.append(task.getBuiltMesosTaskInfo(offer.getSlaveId))
+      }
 
-      // TODO: update the appropriate state
-      //state.neededExecutors -= 1
-      //state.runningTasks += taskId -> offer
-      //state.unclaimedTasks -= taskId
-      //state.taskToTaskNames += taskId -> sspTaskNames.getJavaFriendlyType
+      info("Launching Samza tasks on Mesos offers.")
+      val status = driver.launchTasks(state.offerPool.map(_.getId), preparedTasks)
+      state.offerPool = Set()
+
+      info("Result of job launch is %s".format(status))
 
     } else {
       info("Resource constraints have not been satisfied, awaiting offers.")

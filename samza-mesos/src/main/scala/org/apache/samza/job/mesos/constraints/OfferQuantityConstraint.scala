@@ -20,7 +20,8 @@
 package org.apache.samza.job.mesos.constraints
 
 
-import org.apache.mesos.Protos.{Offer, TaskInfoOrBuilder}
+import org.apache.mesos.Protos.Offer
+import org.apache.samza.job.mesos.MesosTask
 import org.apache.samza.util.Logging
 
 /**
@@ -33,12 +34,12 @@ import org.apache.samza.util.Logging
 class OfferQuantityConstraint extends SchedulingConstraint with Logging {
   /** Determine if all offers satisfy the constraint. . */
   def satisfied(offers: java.util.Collection[Offer],
-                tasks: java.util.Collection[TaskInfoOrBuilder]): Boolean = {
+                tasks: java.util.Collection[MesosTask]): Boolean = {
     if (offers.size() >= tasks.size()) {
-      info("Determined that existing offer pool satisfies the job offer quantity constraint (tasks=%d, offers=%d).".format(offers.size(), tasks.size()))
+      info("Determined that existing offer pool satisfies the job offer quantity constraint (offers=%d, tasks=%d).".format(offers.size(), tasks.size()))
       true
     } else {
-      info("Determined that the existing offer pool does not satisfy the job offer quantity constraint (tasks=%d, offers=%d).".format(offers.size(), tasks.size()))
+      info("Determined that the existing offer pool does not satisfy the job offer quantity constraint (offers=%d, tasks=%d).".format(offers.size(), tasks.size()))
       false
     }
   }

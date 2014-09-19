@@ -20,38 +20,28 @@
 package org.apache.samza.job.mesos
 
 import java.util
-import java.util.concurrent.TimeUnit
 
-import org.apache.mesos.Protos.{TaskState, Offer}
-import org.apache.mesos.state.State
-
-import org.apache.mesos.state.ZooKeeperState
-import org.apache.samza.container.{TaskNamesToSystemStreamPartitions, TaskName}
+import org.apache.mesos.Protos.{Offer, TaskState}
+import org.apache.samza.config.Config
+import org.apache.samza.config.MesosConfig.Config2Mesos
+import org.apache.samza.container.{TaskName, TaskNamesToSystemStreamPartitions}
 import org.apache.samza.job.ApplicationStatus
 import org.apache.samza.job.ApplicationStatus._
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{Util, Logging}
-
-import org.apache.samza.config.Config
-import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.MesosConfig
-import org.apache.samza.config.MesosConfig.Config2Mesos
+import org.apache.samza.util.{Logging, Util}
 
 class SamzaSchedulerState(config: Config) extends Logging {
-  var completedTasks: Int = 0
-  var failedExecutors: Int = 0
-  var releasedExecutors: Int = 0
-
-  var finishedTasks: Set[Int] = Set()
-  var runningTasks: Map[Int, Offer] = Map()
-  var taskToTaskNames: Map[Int, util.Map[TaskName, util.Set[SystemStreamPartition]]] = Map()
-  var status: ApplicationStatus = New
-
-  var taskCount: Int = config.getTaskCount.getOrElse(1)
-  var neededExecutors: Int = taskCount
-  var unclaimedTasks: Set[Int] = (0 until taskCount).toSet
-  var tasksToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, taskCount)
-  var taskNameToChangeLogPartitionMapping: Map[TaskName, Int] = Util.getTaskNameToChangeLogPartitionMapping(config, tasksToSSPTaskNames)
-
+  var currentStatus: ApplicationStatus = New
   var currentState: TaskState = TaskState.TASK_STARTING
+
+  var initialTaskCount: Int = config.getTaskCount.getOrElse(1)
+  var initialSamzaTaskIDs = (0 until initialTaskCount).toSet
+
+  var samzaTaskIDToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, initialTaskCount)
+  var taskNameToChangeLogPartitionMapping: Map[TaskName, Int] = Util.getTaskNameToChangeLogPartitionMapping(config, samzaTaskIDToSSPTaskNames)
+
+  var runningTasks: Set[MesosTask] = Set()
+  var finishedTasks: Set[MesosTask] = Set()
+  var unclaimedTasks: Set[MesosTask] = initialSamzaTaskIDs.map(new MesosTask(config, this, _)).toSet
+
+  var offerPool: Set[Offer] = Set()
 }

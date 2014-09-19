@@ -19,7 +19,8 @@
 
 package org.apache.samza.job.mesos.constraints
 
-import org.apache.mesos.Protos.{Offer, TaskInfoOrBuilder}
+import org.apache.mesos.Protos.Offer
+import org.apache.samza.job.mesos.MesosTask
 
 import scala.collection.JavaConversions._
 
@@ -32,7 +33,7 @@ class NumericalConstraint(name: String, func: (Double) => Boolean) extends Sched
 
   /** Determine if all offers satisfy the constraint. . */
   def satisfied(offers: java.util.Collection[Offer],
-                tasks: java.util.Collection[TaskInfoOrBuilder]): Boolean = {
+                tasks: java.util.Collection[MesosTask]): Boolean = {
     offers forall offerIsSatisfied
   }
 }

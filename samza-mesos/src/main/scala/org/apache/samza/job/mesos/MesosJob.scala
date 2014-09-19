@@ -42,7 +42,7 @@ class MesosJob(config: Config) extends StreamJob {
   val driver = new MesosSchedulerDriver(scheduler, frameworkInfo, "zk://localhost:2181/mesos")
 
   def getStatus: ApplicationStatus = {
-    state.status
+    state.currentStatus
   }
 
   def getFrameworkInfo: FrameworkInfo = {

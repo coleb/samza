@@ -85,7 +85,10 @@ class SamzaScheduler(config: Config,
     info("Status update for Task %s: %s".format(status.getTaskId, status.getState))
   }
 
-  def frameworkMessage(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, data: Array[Byte]): Unit = {
+  def frameworkMessage(driver: SchedulerDriver,
+                       executor: ExecutorID,
+                       slave: SlaveID,
+                       data: Array[Byte]): Unit = {
     info("A framework message was received.")
   }
 
@@ -97,7 +100,10 @@ class SamzaScheduler(config: Config,
     info("A slave has been lost")
   }
 
-  def executorLost(driver: SchedulerDriver, executor: ExecutorID, slave: SlaveID, status: Int): Unit = {
+  def executorLost(driver: SchedulerDriver,
+                   executor: ExecutorID,
+                   slave: SlaveID,
+                   status: Int): Unit = {
     info("An executor has been lost.")
   }
 

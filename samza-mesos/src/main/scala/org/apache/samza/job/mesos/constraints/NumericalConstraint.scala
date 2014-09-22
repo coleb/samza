@@ -21,14 +21,21 @@ package org.apache.samza.job.mesos.constraints
 
 import org.apache.mesos.Protos.Offer
 import org.apache.samza.job.mesos.MesosTask
+import org.apache.samza.util.Logging
 
 import scala.collection.JavaConversions._
 
-class NumericalConstraint(name: String, func: (Double) => Boolean) extends SchedulingConstraint {
+class NumericalConstraint(name: String, func: (Double) => Boolean) extends SchedulingConstraint with Logging {
 
   /** Determine if an offer satisfies the constraint. */
-  def offerIsSatisfied(offer: Offer): Boolean = offer.getAttributesList exists { attr =>
-    attr.getName == name && func(attr.getScalar.getValue)
+  def offerIsSatisfied(offer: Offer): Boolean = {
+    var result = false
+    for(resource <- offer.getResourcesList) {
+      if(resource.getName.equalsIgnoreCase(this.name)) {
+        result = func(resource.getScalar.getValue)
+      }
+    }
+    result
   }
 
   /** Determine if all offers satisfy the constraint. . */

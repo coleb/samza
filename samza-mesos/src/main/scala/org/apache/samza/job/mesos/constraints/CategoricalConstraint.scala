@@ -19,7 +19,7 @@
 
 package org.apache.samza.job.mesos.constraints
 
-import org.apache.mesos.Protos.{Attribute, Offer}
+import org.apache.mesos.Protos.Offer
 import org.apache.samza.job.mesos.MesosTask
 
 import scala.collection.JavaConversions._

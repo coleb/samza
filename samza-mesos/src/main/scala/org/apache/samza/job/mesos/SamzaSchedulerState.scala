@@ -19,8 +19,6 @@
 
 package org.apache.samza.job.mesos
 
-import java.util
-
 import org.apache.mesos.Protos.{Offer, TaskState}
 import org.apache.samza.config.Config
 import org.apache.samza.config.MesosConfig.Config2Mesos
@@ -36,12 +34,17 @@ class SamzaSchedulerState(config: Config) extends Logging {
   var initialTaskCount: Int = config.getTaskCount.getOrElse(1)
   var initialSamzaTaskIDs = (0 until initialTaskCount).toSet
 
-  var samzaTaskIDToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, initialTaskCount)
-  var taskNameToChangeLogPartitionMapping: Map[TaskName, Int] = Util.getTaskNameToChangeLogPartitionMapping(config, samzaTaskIDToSSPTaskNames)
+  var samzaTaskIDToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] =
+    Util.assignContainerToSSPTaskNames(config, initialTaskCount)
+
+  var taskNameToChangeLogPartitionMapping: Map[TaskName, Int] =
+    Util.getTaskNameToChangeLogPartitionMapping(config, samzaTaskIDToSSPTaskNames)
 
   var runningTasks: Set[MesosTask] = Set()
   var finishedTasks: Set[MesosTask] = Set()
-  var unclaimedTasks: Set[MesosTask] = initialSamzaTaskIDs.map(new MesosTask(config, this, _)).toSet
+  var unclaimedTasks: Set[MesosTask] = initialSamzaTaskIDs.map(
+    new MesosTask(config, this, _)
+  ).toSet
 
   var offerPool: Set[Offer] = Set()
 }

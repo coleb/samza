@@ -22,8 +22,8 @@ package org.apache.samza.config
 object MesosConfig {
   // mesos scheduler config
   val PACKAGE_PATH = "mesos.package.path"
+  val MASTER_CONNECT = "mesos.master.connect"
 
-  val EXECUTOR_CLASS = "mesos.executor.class"
   val EXECUTOR_MAX_MEMORY_MB = "mesos.executor.memory.mb"
   val EXECUTOR_MAX_CPU_CORES = "mesos.executor.cpu.cores"
   val EXECUTOR_MAX_DISK_MB = "mesos.executor.disk.mb"
@@ -36,9 +36,9 @@ object MesosConfig {
 }
 
 class MesosConfig(config: Config) extends JobConfig(config) {
-  def getExecutorMaxMemoryMb: Option[Int] = getOption(MesosConfig.EXECUTOR_MAX_MEMORY_MB).map(_.toInt)
+  def getExecutorMaxMemoryMb: Int = getOption(MesosConfig.EXECUTOR_MAX_MEMORY_MB).map(_.toInt).getOrElse(1024)
 
-  def getExecutorMaxCpuCores: Option[Int] = getOption(MesosConfig.EXECUTOR_MAX_CPU_CORES).map(_.toInt)
+  def getExecutorMaxCpuCores: Int = getOption(MesosConfig.EXECUTOR_MAX_CPU_CORES).map(_.toInt).getOrElse(1)
 
   def getPackagePath = getOption(MesosConfig.PACKAGE_PATH)
 
@@ -46,5 +46,5 @@ class MesosConfig(config: Config) extends JobConfig(config) {
 
   def getJmxServerEnabled = getBoolean(MesosConfig.SCHEDULER_JMX_ENABLED, true)
 
-  def getExecutorClass = getOption(MesosConfig.EXECUTOR_CLASS)
+  def getMasterConnect = getOption(MesosConfig.MASTER_CONNECT)
 }

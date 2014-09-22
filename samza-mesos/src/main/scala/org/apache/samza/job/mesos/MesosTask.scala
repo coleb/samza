@@ -22,16 +22,11 @@ package org.apache.samza.job.mesos
 import java.util
 
 import org.apache.mesos.Protos._
+import org.apache.samza.config.Config
+import org.apache.samza.config.MesosConfig.Config2Mesos
+import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.container.TaskNamesToSystemStreamPartitions
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder}
-
-import org.apache.samza.config.Config
-import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.MesosConfig
-import org.apache.samza.config.MesosConfig.Config2Mesos
-import org.apache.samza.job.CommandBuilder
-import org.apache.samza.job.ShellCommandBuilder
-import org.apache.samza.util.Util
 
 import scala.collection.JavaConversions._
 
@@ -39,8 +34,8 @@ class MesosTask(config: Config,
                 state: SamzaSchedulerState,
                 val samzaTaskId: Int) {
 
-  def getSamzaTaskName: String ={
-    "samza-executor-%s" format samzaTaskId.toString
+  def getSamzaTaskName: String = {
+    "samza-task-%s" format samzaTaskId.toString
   }
 
   def getSamzaCommandBuilder: CommandBuilder = {
@@ -52,11 +47,15 @@ class MesosTask(config: Config,
       .setConfig(config)
       .setName(getSamzaTaskName)
       .setTaskNameToSystemStreamPartitionsMapping(sspTaskNames.getJavaFriendlyType)
-      .setTaskNameToChangeLogPartitionMapping(state.taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2)))
+      .setTaskNameToChangeLogPartitionMapping(
+        state.taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2))
+      )
   }
 
   def getBuiltMesosCommandInfoURI: CommandInfo.URI = {
-    val packagePath = config.getPackagePath.get
+    val packagePath = {
+      config.getPackagePath.get
+    }
     CommandInfo.URI.newBuilder()
       .setValue(packagePath)
       .setExtract(true)
@@ -65,7 +64,7 @@ class MesosTask(config: Config,
 
   def getBuiltMesosEnvironment(envMap: util.Map[String, String]): Environment = {
     val mesosEnvironmentBuilder: Environment.Builder = Environment.newBuilder()
-    envMap.foreach(kv => {
+    envMap foreach (kv => {
       mesosEnvironmentBuilder.addVariables(
         Environment.Variable.newBuilder()
           .setName(kv._1)
@@ -97,17 +96,26 @@ class MesosTask(config: Config,
       .setSlaveId(slaveId)
       .setName(getSamzaTaskName)
       .setCommand(getBuiltMesosCommandInfo)
-      .addResources(Resource.newBuilder
-      .setName("cpus")
-      .setType(Value.Type.SCALAR)
-      .setScalar(Value.Scalar.newBuilder().setValue(1))
-      .build())
-      .addResources(Resource.newBuilder
-      .setName("mem")
-      .setType(Value.Type.SCALAR)
-      .setScalar(Value.Scalar.newBuilder().setValue(1024))
-      .build())
-      .build()
+      .addResources(
+        Resource.newBuilder
+          .setName("cpus")
+          .setType(Value.Type.SCALAR)
+          .setScalar(
+            Value.Scalar.newBuilder().setValue(
+              config.getExecutorMaxCpuCores
+            )
+          ).build()
+      )
+      .addResources(
+        Resource.newBuilder
+          .setName("mem")
+          .setType(Value.Type.SCALAR)
+          .setScalar(
+            Value.Scalar.newBuilder().setValue(
+              config.getExecutorMaxMemoryMb
+            )
+          ).build()
+      ).build()
   }
 }
 

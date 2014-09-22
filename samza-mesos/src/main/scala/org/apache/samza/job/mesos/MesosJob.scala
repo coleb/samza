@@ -19,27 +19,25 @@
 
 package org.apache.samza.job.mesos
 
-import java.util.concurrent.TimeUnit
-
-import org.apache.mesos.Protos.{Status, TaskState, FrameworkInfo, FrameworkID}
 import org.apache.mesos.MesosSchedulerDriver
-import org.apache.mesos.state.{State, ZooKeeperState}
-import org.apache.samza.job.ApplicationStatus._
-import org.apache.samza.job.mesos.constraints.OfferQuantityConstraint
-import org.apache.samza.job.{ApplicationStatus, StreamJob}
+import org.apache.mesos.Protos.{FrameworkID, FrameworkInfo}
 import org.apache.samza.config.Config
-import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.MesosConfig
 import org.apache.samza.config.MesosConfig.Config2Mesos
+import org.apache.samza.job.ApplicationStatus._
+import org.apache.samza.job.mesos.constraints.{NumericalConstraint, OfferQuantityConstraint}
+import org.apache.samza.job.{ApplicationStatus, StreamJob}
+import org.apache.samza.util.Logging
 
 /* A MesosJob is a wrapper for a Mesos Scheduler. */
-class MesosJob(config: Config) extends StreamJob {
+class MesosJob(config: Config) extends StreamJob with Logging {
 
   val state = new SamzaSchedulerState(config)
   val frameworkInfo = getFrameworkInfo
-  val constraintManager = getConstraintManager
+  val constraintManager = createConstraintManager
   val scheduler = new SamzaScheduler(config, state, constraintManager)
-  val driver = new MesosSchedulerDriver(scheduler, frameworkInfo, "zk://localhost:2181/mesos")
+  val driver = new MesosSchedulerDriver(scheduler, frameworkInfo,
+    config.getMasterConnect.getOrElse("zk://localhost:2181/mesos"))
+
 
   def getStatus: ApplicationStatus = {
     state.currentStatus
@@ -58,17 +56,36 @@ class MesosJob(config: Config) extends StreamJob {
       .build
   }
 
+  /*
+  TODO: Either use ConfigStream (SAMZA-348) or store recovery state directly to ZK.
   def getState: State = {
-    new ZooKeeperState("localhost:2181", 10, TimeUnit.SECONDS, "/mesos")
+    new ZooKeeperState("localhost:2181", 10, TimeUnit.SECONDS, "/mesos-scheduler-state")
   }
+  */
 
-  def getConstraintManager: ConstraintManager = {
+  def createConstraintManager: ConstraintManager = {
     /* TODO: generate list of constraints from config.
-     *
-     * For now, just make sure we have enough offers so we can launch the
-     * entire job at once.
      */
-    (new ConstraintManager).addConstraint(new OfferQuantityConstraint)
+    (new ConstraintManager)
+      .addConstraint(new OfferQuantityConstraint)
+      .addConstraint(new NumericalConstraint("cpus", (offer) => {
+        if(config.getExecutorMaxCpuCores <= offer) {
+          info("Task is satisfied by offer cpu core resources.")
+          true
+        } else {
+          info("Task is not satisfied by offer cpu core resources.")
+          false
+        }
+      }))
+      .addConstraint(new NumericalConstraint("mem", (offer) => {
+        if(config.getExecutorMaxMemoryMb <= offer) {
+          info("Task is satisfied by offer memory resources.")
+          true
+        } else {
+          info("Task is not satisfied by offer memory resources.")
+          false
+        }
+      }))
   }
 
   def kill: StreamJob = {

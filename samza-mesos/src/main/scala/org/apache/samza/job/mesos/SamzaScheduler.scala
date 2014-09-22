@@ -61,23 +61,31 @@ class SamzaScheduler(config: Config,
     info("Received offers.")
     state.offerPool ++= offers
 
-    if (constraintManager.satisfiesAll(state.offerPool, state.unclaimedTasks)) {
-      info("Resource constraints have been satisfied.")
+    if (state.unclaimedTasks.size > 0) {
+      if (constraintManager.satisfiesAll(state.offerPool, state.unclaimedTasks)) {
+        info("Resource constraints have been satisfied.")
 
-      info("Assigning tasks to offers.")
-      val preparedTasks: util.List[TaskInfo] = new util.ArrayList[TaskInfo]
-      for( (offer, task) <- (state.offerPool zip state.unclaimedTasks)) {
-        preparedTasks.append(task.getBuiltMesosTaskInfo(offer.getSlaveId))
+        info("Assigning tasks to offers.")
+        val preparedTasks: util.List[TaskInfo] = new util.ArrayList[TaskInfo]
+        for ((offer, task) <- (state.offerPool zip state.unclaimedTasks)) {
+          preparedTasks.append(task.getBuiltMesosTaskInfo(offer.getSlaveId))
+        }
+
+        info("Launching Samza tasks on Mesos offers.")
+        val status = driver.launchTasks(state.offerPool.map(_.getId), preparedTasks)
+        
+        state.offerPool = Set()
+        state.runningTasks = state.unclaimedTasks
+        state.unclaimedTasks = Set()
+
+        info("Result of job launch is %s".format(status))
+
+      } else {
+        info("Resource constraints have not been satisfied, awaiting offers.")
       }
-
-      info("Launching Samza tasks on Mesos offers.")
-      val status = driver.launchTasks(state.offerPool.map(_.getId), preparedTasks)
-      state.offerPool = Set()
-
-      info("Result of job launch is %s".format(status))
-
     } else {
-      info("Resource constraints have not been satisfied, awaiting offers.")
+      info("Received an offer without unclaimed tasks, declining")
+      offers.foreach(offer => driver.declineOffer(offer.getId))
     }
   }
 

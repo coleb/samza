@@ -57,8 +57,6 @@ class SamzaScheduler(config: Config,
   }
 
   def resourceOffers(driver: SchedulerDriver, offers: util.List[Offer]) {
-
-    info("Received offers.")
     state.offerPool ++= offers
 
     if (state.unclaimedTasks.size > 0) {
@@ -73,7 +71,7 @@ class SamzaScheduler(config: Config,
 
         info("Launching Samza tasks on Mesos offers.")
         val status = driver.launchTasks(state.offerPool.map(_.getId), preparedTasks)
-        
+
         state.offerPool = Set()
         state.runningTasks = state.unclaimedTasks
         state.unclaimedTasks = Set()
@@ -84,7 +82,7 @@ class SamzaScheduler(config: Config,
         info("Resource constraints have not been satisfied, awaiting offers.")
       }
     } else {
-      info("Received an offer without unclaimed tasks, declining")
+      /* Decline offers we don't plan on using. */
       offers.foreach(offer => driver.declineOffer(offer.getId))
     }
   }

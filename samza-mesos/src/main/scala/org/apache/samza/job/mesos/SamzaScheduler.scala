@@ -21,22 +21,12 @@ package org.apache.samza.job.mesos
 
 import java.util
 
-import org.apache.mesos.Protos.Environment._
 import org.apache.mesos.Protos._
 import org.apache.mesos.{Scheduler, SchedulerDriver}
-import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder}
 import org.apache.samza.config.Config
-import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.MesosConfig
-import org.apache.samza.config.MesosConfig.Config2Mesos
-import org.apache.samza.util.Util
+import org.apache.samza.util.Logging
 
 import scala.collection.JavaConversions._
-
-import org.apache.samza.util.Logging
-import org.apache.samza.container.TaskNamesToSystemStreamPartitions
-
-import scala.collection.JavaConverters._
 
 class SamzaScheduler(config: Config,
                      state: SamzaSchedulerState,
@@ -82,6 +72,7 @@ class SamzaScheduler(config: Config,
         info("Resource constraints have not been satisfied, awaiting offers.")
       }
     } else {
+      /* FIXME: actually manage the offers we plan on using. */
       /* Decline offers we don't plan on using. */
       offers.foreach(offer => driver.declineOffer(offer.getId))
     }
